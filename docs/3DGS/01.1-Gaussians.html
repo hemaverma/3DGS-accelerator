@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D & 3D Gaussian Visualiser</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,400&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #06080f;
+  color: #d4dae8;
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+header { text-align: center; }
+.eyebrow {
+  font-size: 10px; letter-spacing: .2em; color: #f07040;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 900; color: #fff; letter-spacing: -.02em;
+}
+h1 em { font-style: italic; color: #f07040; }
+.tagline { font-size: 12px; color: #444; margin-top: 5px; }
+
+.panels {
+  display: flex; gap: 22px; flex-wrap: wrap;
+  justify-content: center; width: 100%; max-width: 940px;
+}
+
+.panel {
+  border-radius: 16px; padding: 20px;
+  flex: 1 1 360px; max-width: 450px;
+}
+.panel-2d {
+  background: #0c0f18;
+  border: 1px solid rgba(240,112,64,.28);
+  box-shadow: 0 0 48px rgba(240,112,64,.07);
+}
+.panel-3d {
+  background: #0c0f18;
+  border: 1px solid rgba(91,141,238,.22);
+  box-shadow: 0 0 48px rgba(91,141,238,.07);
+}
+
+.panel-eyebrow {
+  font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.panel-2d .panel-eyebrow { color: #f07040; }
+.panel-3d .panel-eyebrow { color: #5b8dee; }
+
+.equation {
+  font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 4px;
+}
+.panel-desc { font-size: 11px; color: #555; margin-bottom: 12px; line-height: 1.6; }
+
+canvas {
+  display: block; width: 100%;
+  border-radius: 10px;
+  background: #06080f;
+}
+
+.controls { margin-top: 14px; }
+.slider-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.slider-row label {
+  font-size: 11px; color: #888; min-width: 34px;
+}
+.slider-row input[type=range] {
+  flex: 1; accent-color: #f07040; cursor: pointer;
+  height: 3px;
+}
+.slider-row .val {
+  font-size: 11px; color: #f0a060; min-width: 40px; text-align: right;
+}
+
+.panel-note {
+  margin-top: 10px; font-size: 11px; color: #3a3f4a; line-height: 1.7;
+}
+
+.spin-btn {
+  margin-top: 10px; padding: 5px 14px;
+  font-size: 11px; font-family: 'JetBrains Mono', monospace;
+  background: rgba(91,141,238,.15);
+  border: 1px solid rgba(91,141,238,.4);
+  border-radius: 6px; color: #5b8dee;
+  cursor: pointer; transition: background .2s;
+}
+.spin-btn:hover { background: rgba(91,141,238,.25); }
+.spin-btn.paused {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.12);
+  color: #555;
+}
+
+.legend {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  justify-content: center; max-width: 940px; width: 100%;
+}
+.legend-item {
+  background: #0c0f18;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px; padding: 10px 14px;
+  flex: 1 1 175px;
+}
+.legend-item .leg-label {
+  font-size: 11px; font-weight: 700; margin-bottom: 3px;
+}
+.legend-item .leg-desc {
+  font-size: 10px; color: #555; line-height: 1.65;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Gaussian Visualiser</div>
+  <h1><em>2D</em> &amp; <em>3D</em> Gaussians</h1>
+  <p class="tagline">The bell curve in 2D &nbsp;·&nbsp; The bell surface in 3D &nbsp;·&nbsp; Drag the sliders</p>
+</header>
+
+<div class="panels">
+
+  <!-- ── 2D PANEL ── -->
+  <div class="panel panel-2d">
+    <div class="panel-eyebrow">2D Gaussian</div>
+    <div class="equation">G(x,y) = exp(−½ · dᵀΣ⁻¹d)</div>
+    <div class="panel-desc">Heat-map over the XY plane. Brighter = higher value. White rings = 1σ / 2σ / 3σ contours.</div>
+    <canvas id="c2d" width="420" height="320"></canvas>
+    <div class="controls">
+      <div class="slider-row">
+        <label>σₓ</label>
+        <input type="range" id="sx2" min="15" max="150" value="72">
+        <span class="val" id="vsx2">72</span>
+      </div>
+      <div class="slider-row">
+        <label>σᵧ</label>
+        <input type="range" id="sy2" min="15" max="150" value="38">
+        <span class="val" id="vsy2">38</span>
+      </div>
+      <div class="slider-row">
+        <label>rot</label>
+        <input type="range" id="rot2" min="-157" max="157" value="40">
+        <span class="val" id="vrot2">23°</span>
+      </div>
+    </div>
+    <div class="panel-note">
+      Arrows = principal axes · No hard edge anywhere — it fades smoothly to zero
+    </div>
+  </div>
+
+  <!-- ── 3D PANEL ── -->
+  <div class="panel panel-3d">
+    <div class="panel-eyebrow">3D Gaussian</div>
+    <div class="equation">G(x,y,z) = exp(−½ · dᵀΣ⁻¹d)</div>
+    <div class="panel-desc">Isometric surface. Height = Gaussian value at (x,z). Color = intensity.</div>
+    <canvas id="c3d" width="440" height="340"></canvas>
+    <div class="controls">
+      <div class="slider-row">
+        <label>σₓ</label>
+        <input type="range" id="sx3" min="20" max="200" value="100">
+        <span class="val" id="vsx3">1.0</span>
+      </div>
+      <div class="slider-row">
+        <label>peak</label>
+        <input type="range" id="sy3" min="20" max="220" value="100">
+        <span class="val" id="vsy3">1.0</span>
+      </div>
+      <div class="slider-row">
+        <label>σz</label>
+        <input type="range" id="sz3" min="20" max="200" value="55">
+        <span class="val" id="vsz3">0.55</span>
+      </div>
+    </div>
+    <button class="spin-btn" id="spinBtn">⏸ pause spin</button>
+    <div class="panel-note">
+      In 3DGS each Gaussian is this shape in 3D space · σₓ/σz = footprint · peak = opacity centre
+    </div>
+  </div>
+
+</div>
+
+<!-- ── LEGEND ── -->
+<div class="legend">
+  <div class="legend-item" style="border-left: 3px solid #f07040;">
+    <div class="leg-label" style="color:#f07040;">Peak  μ</div>
+    <div class="leg-desc">Centre of the Gaussian — the point of maximum density</div>
+  </div>
+  <div class="legend-item" style="border-left: 3px solid #ffd080;">
+    <div class="leg-label" style="color:#ffd080;">σ (sigma)</div>
+    <div class="leg-desc">Standard deviation — controls how wide it spreads in each direction</div>
+  </div>
+  <div class="legend-item" style="border-left: 3px solid #4ecb8d;">
+    <div class="leg-label" style="color:#4ecb8d;">Covariance Σ</div>
+    <div class="leg-desc">Full shape: independent stretch per axis + rotation</div>
+  </div>
+  <div class="legend-item" style="border-left: 3px solid #c8c9cd;">
+    <div class="leg-label" style="color:#c8c9cd;">Smooth falloff</div>
+    <div class="leg-desc">Value drops as exp(−r²) — never a hard edge, always differentiable</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  INFERNO COLORMAP
+// ─────────────────────────────────────────────
+function inferno(t) {
+  const stops = [
+    [0.001462,0.000466,0.013866],
+    [0.20803, 0.064826,0.394311],
+    [0.545458,0.085019,0.443573],
+    [0.842386,0.219057,0.267854],
+    [0.987053,0.596329,0.148638],
+    [0.988362,0.998364,0.644924],
+  ];
+  const i  = Math.min(t * (stops.length - 1), stops.length - 1.001);
+  const lo = stops[Math.floor(i)], hi = stops[Math.ceil(i)];
+  const f  = i - Math.floor(i);
+  return [
+    Math.round((lo[0]+(hi[0]-lo[0])*f)*255),
+    Math.round((lo[1]+(hi[1]-lo[1])*f)*255),
+    Math.round((lo[2]+(hi[2]-lo[2])*f)*255),
+  ];
+}
+
+// ─────────────────────────────────────────────
+//  2D GAUSSIAN
+// ─────────────────────────────────────────────
+function gauss2D(px, py, cx, cy, sx, sy, rot) {
+  const cos = Math.cos(-rot), sin = Math.sin(-rot);
+  const dx = px - cx, dy = py - cy;
+  const rx = cos*dx - sin*dy;
+  const ry = sin*dx + cos*dy;
+  return Math.exp(-0.5 * ((rx*rx)/(sx*sx) + (ry*ry)/(sy*sy)));
+}
+
+function draw2D(sx, sy, rot) {
+  const canvas = document.getElementById('c2d');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2;
+
+  // Pixel-by-pixel heatmap
+  const img = ctx.createImageData(W, H);
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const v = gauss2D(px, py, cx, cy, sx, sy, rot);
+      const [r,g,b] = inferno(Math.pow(v, 0.55));
+      const idx = (py*W + px)*4;
+      img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // Contour rings at 1σ, 2σ, 3σ
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  [[0.607, 1, '1σ'], [0.135, 0.5, '2σ'], [0.011, 0.3, '3σ']].forEach(([level, opacity, lbl], li) => {
+    const ex = sx * Math.sqrt(-2*Math.log(level));
+    const ey = sy * Math.sqrt(-2*Math.log(level));
+    ctx.beginPath();
+    ctx.ellipse(0, 0, ex, ey, 0, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
+    ctx.lineWidth   = li === 0 ? 2 : 1;
+    ctx.setLineDash(li === 0 ? [] : [4,5]);
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Cross-hairs
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-sx*2.8, 0); ctx.lineTo(sx*2.8, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -sy*2.8); ctx.lineTo(0, sy*2.8); ctx.stroke();
+
+  // σ arrows
+  const arrow = (x2, y2) => {
+    const a = Math.atan2(y2, x2);
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 10*Math.cos(a-0.38), y2 - 10*Math.sin(a-0.38));
+    ctx.lineTo(x2 - 10*Math.cos(a+0.38), y2 - 10*Math.sin(a+0.38));
+    ctx.closePath(); ctx.fill();
+  };
+  ctx.fillStyle   = 'rgba(255,255,255,0.75)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(sx, 0); ctx.stroke();
+  arrow(sx, 0);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, -sy); ctx.stroke();
+  arrow(0, -sy);
+  ctx.restore();
+
+  // Labels (screen-space, so unaffected by rotation)
+  ctx.font = 'bold 13px JetBrains Mono, monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.textAlign = 'center';
+  ctx.fillText('σₓ', cx + sx*Math.cos(rot)*0.52, cy + sx*Math.sin(rot)*0.52 + 18);
+  ctx.fillText('σᵧ', cx - sy*Math.sin(rot)*0.52 - 16, cy - sy*Math.cos(rot)*0.52 + 4);
+
+  // Peak dot
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI*2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.font = '11px JetBrains Mono'; ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.textAlign = 'left';
+  ctx.fillText('μ (peak)', cx+8, cy-8);
+}
+
+// ─────────────────────────────────────────────
+//  3D GAUSSIAN (isometric)
+// ─────────────────────────────────────────────
+function iso(x, y, z, ox, oy, scale) {
+  const ix = (x - z) * Math.cos(Math.PI/6);
+  const iy = (x + z) * Math.sin(Math.PI/6) - y;
+  return [ox + ix*scale, oy + iy*scale];
+}
+
+let rotY = 0, spinning = true;
+let animId = null;
+
+function draw3D(sx, peakH, sz) {
+  const canvas = document.getElementById('c3d');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#06080f'; ctx.fillRect(0,0,W,H);
+
+  const ox = W*0.5, oy = H*0.63, scale = 36;
+  const steps = 30, range = 3;
+
+  // Floor grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+  for (let i = -range; i <= range; i++) {
+    const [ax,ay] = iso(i,0,-range,ox,oy,scale);
+    const [bx,by] = iso(i,0, range,ox,oy,scale);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+    const [cx2,cy2] = iso(-range,0,i,ox,oy,scale);
+    const [dx,dy]   = iso( range,0,i,ox,oy,scale);
+    ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(dx,dy); ctx.stroke();
+  }
+
+  const cr = Math.cos(rotY), sr = Math.sin(rotY);
+
+  // Build quads
+  const quads = [];
+  for (let xi = 0; xi < steps; xi++) {
+    for (let zi = 0; zi < steps; zi++) {
+      const x0 = -range + (xi/steps)*2*range;
+      const x1 = -range + ((xi+1)/steps)*2*range;
+      const z0 = -range + (zi/steps)*2*range;
+      const z1 = -range + ((zi+1)/steps)*2*range;
+
+      const corners = [[x0,z0],[x1,z0],[x1,z1],[x0,z1]].map(([xr,zr]) => {
+        const rx = xr*cr - zr*sr;
+        const rz = xr*sr + zr*cr;
+        const v  = Math.exp(-0.5*((rx*rx)/((sx/100)*(sx/100)) + (rz*rz)/((sz/100)*(sz/100))));
+        const y  = v * (peakH/100) * 2.2;
+        const [px,py] = iso(xr, y, zr, ox, oy, scale);
+        return { px, py, v };
+      });
+
+      const avgV = corners.reduce((s,c)=>s+c.v,0)/4;
+      const avgY = corners.reduce((s,c)=>s+c.py,0)/4;
+      quads.push({ corners, avgV, avgY });
+    }
+  }
+  quads.sort((a,b) => a.avgY - b.avgY);
+
+  quads.forEach(({ corners, avgV }) => {
+    if (avgV < 0.01) return;
+    const [r,g,b] = inferno(Math.pow(avgV, 0.5));
+    ctx.beginPath();
+    ctx.moveTo(corners[0].px, corners[0].py);
+    for (let i = 1; i < 4; i++) ctx.lineTo(corners[i].px, corners[i].py);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.82 + avgV*0.18})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.25)`;
+    ctx.lineWidth = 0.3; ctx.stroke();
+  });
+
+  // Peak dot
+  const [pkx,pky] = iso(0, (peakH/100)*2.2, 0, ox, oy, scale);
+  ctx.beginPath(); ctx.arc(pkx,pky,5,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+  ctx.font='11px JetBrains Mono'; ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.textAlign='left';
+  ctx.fillText('μ (peak)', pkx+8, pky-4);
+
+  // Axes
+  const axLen = range*1.1;
+  [
+    {to:[axLen,0,0], lbl:'X', off:[5,-2]},
+    {to:[0,(peakH/100)*2.2+0.5,0], lbl:'height = G(x,z)', off:[6,-3]},
+    {to:[0,0,axLen], lbl:'Z', off:[6,5]},
+  ].forEach(ax => {
+    const [fx,fy] = iso(0,0,0,ox,oy,scale);
+    const [tx,ty] = iso(...ax.to, ox,oy,scale);
+    ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(tx,ty);
+    ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.font='11px JetBrains Mono'; ctx.textAlign='left';
+    ctx.fillText(ax.lbl, tx+ax.off[0], ty+ax.off[1]);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  ANIMATION LOOP
+// ─────────────────────────────────────────────
+function tick() {
+  const sx3  = +document.getElementById('sx3').value;
+  const sy3  = +document.getElementById('sy3').value;
+  const sz3  = +document.getElementById('sz3').value;
+  if (spinning) rotY += 0.013;
+  draw3D(sx3, sy3, sz3);
+  animId = requestAnimationFrame(tick);
+}
+
+// ─────────────────────────────────────────────
+//  WIRING
+// ─────────────────────────────────────────────
+function getParams2D() {
+  return {
+    sx:  +document.getElementById('sx2').value,
+    sy:  +document.getElementById('sy2').value,
+    rot: +document.getElementById('rot2').value / 100,
+  };
+}
+
+function update2D() {
+  const { sx, sy, rot } = getParams2D();
+  document.getElementById('vsx2').textContent  = sx;
+  document.getElementById('vsy2').textContent  = sy;
+  document.getElementById('vrot2').textContent = Math.round(rot * 180/Math.PI) + '°';
+  draw2D(sx, sy, rot);
+}
+
+function update3DLabels() {
+  document.getElementById('vsx3').textContent = (+document.getElementById('sx3').value/100).toFixed(2);
+  document.getElementById('vsy3').textContent = (+document.getElementById('sy3').value/100).toFixed(2);
+  document.getElementById('vsz3').textContent = (+document.getElementById('sz3').value/100).toFixed(2);
+}
+
+['sx2','sy2','rot2'].forEach(id =>
+  document.getElementById(id).addEventListener('input', update2D));
+
+['sx3','sy3','sz3'].forEach(id =>
+  document.getElementById(id).addEventListener('input', update3DLabels));
+
+document.getElementById('spinBtn').addEventListener('click', function() {
+  spinning = !spinning;
+  this.textContent = spinning ? '⏸ pause spin' : '▶ spin';
+  this.classList.toggle('paused', !spinning);
+});
+
+// Initial draw
+update2D();
+update3DLabels();
+tick();
+</script>
+</body>
+</html>

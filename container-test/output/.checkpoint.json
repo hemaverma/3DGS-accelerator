@@ -1,0 +1,1845 @@
+{
+  "job_id": "docker_cp_test",
+  "stage": "ColmapReconstruction",
+  "input_folder": "/data/input/docker_cp_test",
+  "output_folder": "/data/output",
+  "temp_folder": "/tmp/3dgs-work",
+  "timestamp": 1772234631,
+  "completed_stages": {
+    "video_count": 2,
+    "total_frames": 300,
+    "frame_cache": {
+      "frame_sets": [
+        {
+          "frame_paths": [
+            "/tmp/.tmpk2nfTf/frame_000001.jpg",
+            "/tmp/.tmpk2nfTf/frame_000002.jpg",
+            "/tmp/.tmpk2nfTf/frame_000003.jpg",
+            "/tmp/.tmpk2nfTf/frame_000004.jpg",
+            "/tmp/.tmpk2nfTf/frame_000005.jpg",
+            "/tmp/.tmpk2nfTf/frame_000006.jpg",
+            "/tmp/.tmpk2nfTf/frame_000007.jpg",
+            "/tmp/.tmpk2nfTf/frame_000008.jpg",
+            "/tmp/.tmpk2nfTf/frame_000009.jpg",
+            "/tmp/.tmpk2nfTf/frame_000010.jpg",
+            "/tmp/.tmpk2nfTf/frame_000011.jpg",
+            "/tmp/.tmpk2nfTf/frame_000012.jpg",
+            "/tmp/.tmpk2nfTf/frame_000013.jpg",
+            "/tmp/.tmpk2nfTf/frame_000014.jpg",
+            "/tmp/.tmpk2nfTf/frame_000015.jpg",
+            "/tmp/.tmpk2nfTf/frame_000016.jpg",
+            "/tmp/.tmpk2nfTf/frame_000017.jpg",
+            "/tmp/.tmpk2nfTf/frame_000018.jpg",
+            "/tmp/.tmpk2nfTf/frame_000019.jpg",
+            "/tmp/.tmpk2nfTf/frame_000020.jpg",
+            "/tmp/.tmpk2nfTf/frame_000021.jpg",
+            "/tmp/.tmpk2nfTf/frame_000022.jpg",
+            "/tmp/.tmpk2nfTf/frame_000023.jpg",
+            "/tmp/.tmpk2nfTf/frame_000024.jpg",
+            "/tmp/.tmpk2nfTf/frame_000025.jpg",
+            "/tmp/.tmpk2nfTf/frame_000026.jpg",
+            "/tmp/.tmpk2nfTf/frame_000027.jpg",
+            "/tmp/.tmpk2nfTf/frame_000028.jpg",
+            "/tmp/.tmpk2nfTf/frame_000029.jpg",
+            "/tmp/.tmpk2nfTf/frame_000030.jpg",
+            "/tmp/.tmpk2nfTf/frame_000031.jpg",
+            "/tmp/.tmpk2nfTf/frame_000032.jpg",
+            "/tmp/.tmpk2nfTf/frame_000033.jpg",
+            "/tmp/.tmpk2nfTf/frame_000034.jpg",
+            "/tmp/.tmpk2nfTf/frame_000035.jpg",
+            "/tmp/.tmpk2nfTf/frame_000036.jpg",
+            "/tmp/.tmpk2nfTf/frame_000037.jpg",
+            "/tmp/.tmpk2nfTf/frame_000038.jpg",
+            "/tmp/.tmpk2nfTf/frame_000039.jpg",
+            "/tmp/.tmpk2nfTf/frame_000040.jpg",
+            "/tmp/.tmpk2nfTf/frame_000041.jpg",
+            "/tmp/.tmpk2nfTf/frame_000042.jpg",
+            "/tmp/.tmpk2nfTf/frame_000043.jpg",
+            "/tmp/.tmpk2nfTf/frame_000044.jpg",
+            "/tmp/.tmpk2nfTf/frame_000045.jpg",
+            "/tmp/.tmpk2nfTf/frame_000046.jpg",
+            "/tmp/.tmpk2nfTf/frame_000047.jpg",
+            "/tmp/.tmpk2nfTf/frame_000048.jpg",
+            "/tmp/.tmpk2nfTf/frame_000049.jpg",
+            "/tmp/.tmpk2nfTf/frame_000050.jpg",
+            "/tmp/.tmpk2nfTf/frame_000051.jpg",
+            "/tmp/.tmpk2nfTf/frame_000052.jpg",
+            "/tmp/.tmpk2nfTf/frame_000053.jpg",
+            "/tmp/.tmpk2nfTf/frame_000054.jpg",
+            "/tmp/.tmpk2nfTf/frame_000055.jpg",
+            "/tmp/.tmpk2nfTf/frame_000056.jpg",
+            "/tmp/.tmpk2nfTf/frame_000057.jpg",
+            "/tmp/.tmpk2nfTf/frame_000058.jpg",
+            "/tmp/.tmpk2nfTf/frame_000059.jpg",
+            "/tmp/.tmpk2nfTf/frame_000060.jpg",
+            "/tmp/.tmpk2nfTf/frame_000061.jpg",
+            "/tmp/.tmpk2nfTf/frame_000062.jpg",
+            "/tmp/.tmpk2nfTf/frame_000063.jpg",
+            "/tmp/.tmpk2nfTf/frame_000064.jpg",
+            "/tmp/.tmpk2nfTf/frame_000065.jpg",
+            "/tmp/.tmpk2nfTf/frame_000066.jpg",
+            "/tmp/.tmpk2nfTf/frame_000067.jpg",
+            "/tmp/.tmpk2nfTf/frame_000068.jpg",
+            "/tmp/.tmpk2nfTf/frame_000069.jpg",
+            "/tmp/.tmpk2nfTf/frame_000070.jpg",
+            "/tmp/.tmpk2nfTf/frame_000071.jpg",
+            "/tmp/.tmpk2nfTf/frame_000072.jpg",
+            "/tmp/.tmpk2nfTf/frame_000073.jpg",
+            "/tmp/.tmpk2nfTf/frame_000074.jpg",
+            "/tmp/.tmpk2nfTf/frame_000075.jpg",
+            "/tmp/.tmpk2nfTf/frame_000076.jpg",
+            "/tmp/.tmpk2nfTf/frame_000077.jpg",
+            "/tmp/.tmpk2nfTf/frame_000078.jpg",
+            "/tmp/.tmpk2nfTf/frame_000079.jpg",
+            "/tmp/.tmpk2nfTf/frame_000080.jpg",
+            "/tmp/.tmpk2nfTf/frame_000081.jpg",
+            "/tmp/.tmpk2nfTf/frame_000082.jpg",
+            "/tmp/.tmpk2nfTf/frame_000083.jpg",
+            "/tmp/.tmpk2nfTf/frame_000084.jpg",
+            "/tmp/.tmpk2nfTf/frame_000085.jpg",
+            "/tmp/.tmpk2nfTf/frame_000086.jpg",
+            "/tmp/.tmpk2nfTf/frame_000087.jpg",
+            "/tmp/.tmpk2nfTf/frame_000088.jpg",
+            "/tmp/.tmpk2nfTf/frame_000089.jpg",
+            "/tmp/.tmpk2nfTf/frame_000090.jpg",
+            "/tmp/.tmpk2nfTf/frame_000091.jpg",
+            "/tmp/.tmpk2nfTf/frame_000092.jpg",
+            "/tmp/.tmpk2nfTf/frame_000093.jpg",
+            "/tmp/.tmpk2nfTf/frame_000094.jpg",
+            "/tmp/.tmpk2nfTf/frame_000095.jpg",
+            "/tmp/.tmpk2nfTf/frame_000096.jpg",
+            "/tmp/.tmpk2nfTf/frame_000097.jpg",
+            "/tmp/.tmpk2nfTf/frame_000098.jpg",
+            "/tmp/.tmpk2nfTf/frame_000099.jpg",
+            "/tmp/.tmpk2nfTf/frame_000100.jpg",
+            "/tmp/.tmpk2nfTf/frame_000101.jpg",
+            "/tmp/.tmpk2nfTf/frame_000102.jpg",
+            "/tmp/.tmpk2nfTf/frame_000103.jpg",
+            "/tmp/.tmpk2nfTf/frame_000104.jpg",
+            "/tmp/.tmpk2nfTf/frame_000105.jpg",
+            "/tmp/.tmpk2nfTf/frame_000106.jpg",
+            "/tmp/.tmpk2nfTf/frame_000107.jpg",
+            "/tmp/.tmpk2nfTf/frame_000108.jpg",
+            "/tmp/.tmpk2nfTf/frame_000109.jpg",
+            "/tmp/.tmpk2nfTf/frame_000110.jpg",
+            "/tmp/.tmpk2nfTf/frame_000111.jpg",
+            "/tmp/.tmpk2nfTf/frame_000112.jpg",
+            "/tmp/.tmpk2nfTf/frame_000113.jpg",
+            "/tmp/.tmpk2nfTf/frame_000114.jpg",
+            "/tmp/.tmpk2nfTf/frame_000115.jpg",
+            "/tmp/.tmpk2nfTf/frame_000116.jpg",
+            "/tmp/.tmpk2nfTf/frame_000117.jpg",
+            "/tmp/.tmpk2nfTf/frame_000118.jpg",
+            "/tmp/.tmpk2nfTf/frame_000119.jpg",
+            "/tmp/.tmpk2nfTf/frame_000120.jpg",
+            "/tmp/.tmpk2nfTf/frame_000121.jpg",
+            "/tmp/.tmpk2nfTf/frame_000122.jpg",
+            "/tmp/.tmpk2nfTf/frame_000123.jpg",
+            "/tmp/.tmpk2nfTf/frame_000124.jpg",
+            "/tmp/.tmpk2nfTf/frame_000125.jpg",
+            "/tmp/.tmpk2nfTf/frame_000126.jpg",
+            "/tmp/.tmpk2nfTf/frame_000127.jpg",
+            "/tmp/.tmpk2nfTf/frame_000128.jpg",
+            "/tmp/.tmpk2nfTf/frame_000129.jpg",
+            "/tmp/.tmpk2nfTf/frame_000130.jpg",
+            "/tmp/.tmpk2nfTf/frame_000131.jpg",
+            "/tmp/.tmpk2nfTf/frame_000132.jpg",
+            "/tmp/.tmpk2nfTf/frame_000133.jpg",
+            "/tmp/.tmpk2nfTf/frame_000134.jpg",
+            "/tmp/.tmpk2nfTf/frame_000135.jpg",
+            "/tmp/.tmpk2nfTf/frame_000136.jpg",
+            "/tmp/.tmpk2nfTf/frame_000137.jpg",
+            "/tmp/.tmpk2nfTf/frame_000138.jpg",
+            "/tmp/.tmpk2nfTf/frame_000139.jpg",
+            "/tmp/.tmpk2nfTf/frame_000140.jpg",
+            "/tmp/.tmpk2nfTf/frame_000141.jpg",
+            "/tmp/.tmpk2nfTf/frame_000142.jpg",
+            "/tmp/.tmpk2nfTf/frame_000143.jpg",
+            "/tmp/.tmpk2nfTf/frame_000144.jpg",
+            "/tmp/.tmpk2nfTf/frame_000145.jpg",
+            "/tmp/.tmpk2nfTf/frame_000146.jpg",
+            "/tmp/.tmpk2nfTf/frame_000147.jpg",
+            "/tmp/.tmpk2nfTf/frame_000148.jpg",
+            "/tmp/.tmpk2nfTf/frame_000149.jpg",
+            "/tmp/.tmpk2nfTf/frame_000150.jpg"
+          ],
+          "frame_count": 150,
+          "output_dir": "/tmp/.tmpk2nfTf",
+          "source_video": {
+            "path": "/data/input/docker_cp_test/view1.mp4",
+            "filename": "view1.mp4"
+          }
+        },
+        {
+          "frame_paths": [
+            "/tmp/.tmpfloyHr/frame_000001.jpg",
+            "/tmp/.tmpfloyHr/frame_000002.jpg",
+            "/tmp/.tmpfloyHr/frame_000003.jpg",
+            "/tmp/.tmpfloyHr/frame_000004.jpg",
+            "/tmp/.tmpfloyHr/frame_000005.jpg",
+            "/tmp/.tmpfloyHr/frame_000006.jpg",
+            "/tmp/.tmpfloyHr/frame_000007.jpg",
+            "/tmp/.tmpfloyHr/frame_000008.jpg",
+            "/tmp/.tmpfloyHr/frame_000009.jpg",
+            "/tmp/.tmpfloyHr/frame_000010.jpg",
+            "/tmp/.tmpfloyHr/frame_000011.jpg",
+            "/tmp/.tmpfloyHr/frame_000012.jpg",
+            "/tmp/.tmpfloyHr/frame_000013.jpg",
+            "/tmp/.tmpfloyHr/frame_000014.jpg",
+            "/tmp/.tmpfloyHr/frame_000015.jpg",
+            "/tmp/.tmpfloyHr/frame_000016.jpg",
+            "/tmp/.tmpfloyHr/frame_000017.jpg",
+            "/tmp/.tmpfloyHr/frame_000018.jpg",
+            "/tmp/.tmpfloyHr/frame_000019.jpg",
+            "/tmp/.tmpfloyHr/frame_000020.jpg",
+            "/tmp/.tmpfloyHr/frame_000021.jpg",
+            "/tmp/.tmpfloyHr/frame_000022.jpg",
+            "/tmp/.tmpfloyHr/frame_000023.jpg",
+            "/tmp/.tmpfloyHr/frame_000024.jpg",
+            "/tmp/.tmpfloyHr/frame_000025.jpg",
+            "/tmp/.tmpfloyHr/frame_000026.jpg",
+            "/tmp/.tmpfloyHr/frame_000027.jpg",
+            "/tmp/.tmpfloyHr/frame_000028.jpg",
+            "/tmp/.tmpfloyHr/frame_000029.jpg",
+            "/tmp/.tmpfloyHr/frame_000030.jpg",
+            "/tmp/.tmpfloyHr/frame_000031.jpg",
+            "/tmp/.tmpfloyHr/frame_000032.jpg",
+            "/tmp/.tmpfloyHr/frame_000033.jpg",
+            "/tmp/.tmpfloyHr/frame_000034.jpg",
+            "/tmp/.tmpfloyHr/frame_000035.jpg",
+            "/tmp/.tmpfloyHr/frame_000036.jpg",
+            "/tmp/.tmpfloyHr/frame_000037.jpg",
+            "/tmp/.tmpfloyHr/frame_000038.jpg",
+            "/tmp/.tmpfloyHr/frame_000039.jpg",
+            "/tmp/.tmpfloyHr/frame_000040.jpg",
+            "/tmp/.tmpfloyHr/frame_000041.jpg",
+            "/tmp/.tmpfloyHr/frame_000042.jpg",
+            "/tmp/.tmpfloyHr/frame_000043.jpg",
+            "/tmp/.tmpfloyHr/frame_000044.jpg",
+            "/tmp/.tmpfloyHr/frame_000045.jpg",
+            "/tmp/.tmpfloyHr/frame_000046.jpg",
+            "/tmp/.tmpfloyHr/frame_000047.jpg",
+            "/tmp/.tmpfloyHr/frame_000048.jpg",
+            "/tmp/.tmpfloyHr/frame_000049.jpg",
+            "/tmp/.tmpfloyHr/frame_000050.jpg",
+            "/tmp/.tmpfloyHr/frame_000051.jpg",
+            "/tmp/.tmpfloyHr/frame_000052.jpg",
+            "/tmp/.tmpfloyHr/frame_000053.jpg",
+            "/tmp/.tmpfloyHr/frame_000054.jpg",
+            "/tmp/.tmpfloyHr/frame_000055.jpg",
+            "/tmp/.tmpfloyHr/frame_000056.jpg",
+            "/tmp/.tmpfloyHr/frame_000057.jpg",
+            "/tmp/.tmpfloyHr/frame_000058.jpg",
+            "/tmp/.tmpfloyHr/frame_000059.jpg",
+            "/tmp/.tmpfloyHr/frame_000060.jpg",
+            "/tmp/.tmpfloyHr/frame_000061.jpg",
+            "/tmp/.tmpfloyHr/frame_000062.jpg",
+            "/tmp/.tmpfloyHr/frame_000063.jpg",
+            "/tmp/.tmpfloyHr/frame_000064.jpg",
+            "/tmp/.tmpfloyHr/frame_000065.jpg",
+            "/tmp/.tmpfloyHr/frame_000066.jpg",
+            "/tmp/.tmpfloyHr/frame_000067.jpg",
+            "/tmp/.tmpfloyHr/frame_000068.jpg",
+            "/tmp/.tmpfloyHr/frame_000069.jpg",
+            "/tmp/.tmpfloyHr/frame_000070.jpg",
+            "/tmp/.tmpfloyHr/frame_000071.jpg",
+            "/tmp/.tmpfloyHr/frame_000072.jpg",
+            "/tmp/.tmpfloyHr/frame_000073.jpg",
+            "/tmp/.tmpfloyHr/frame_000074.jpg",
+            "/tmp/.tmpfloyHr/frame_000075.jpg",
+            "/tmp/.tmpfloyHr/frame_000076.jpg",
+            "/tmp/.tmpfloyHr/frame_000077.jpg",
+            "/tmp/.tmpfloyHr/frame_000078.jpg",
+            "/tmp/.tmpfloyHr/frame_000079.jpg",
+            "/tmp/.tmpfloyHr/frame_000080.jpg",
+            "/tmp/.tmpfloyHr/frame_000081.jpg",
+            "/tmp/.tmpfloyHr/frame_000082.jpg",
+            "/tmp/.tmpfloyHr/frame_000083.jpg",
+            "/tmp/.tmpfloyHr/frame_000084.jpg",
+            "/tmp/.tmpfloyHr/frame_000085.jpg",
+            "/tmp/.tmpfloyHr/frame_000086.jpg",
+            "/tmp/.tmpfloyHr/frame_000087.jpg",
+            "/tmp/.tmpfloyHr/frame_000088.jpg",
+            "/tmp/.tmpfloyHr/frame_000089.jpg",
+            "/tmp/.tmpfloyHr/frame_000090.jpg",
+            "/tmp/.tmpfloyHr/frame_000091.jpg",
+            "/tmp/.tmpfloyHr/frame_000092.jpg",
+            "/tmp/.tmpfloyHr/frame_000093.jpg",
+            "/tmp/.tmpfloyHr/frame_000094.jpg",
+            "/tmp/.tmpfloyHr/frame_000095.jpg",
+            "/tmp/.tmpfloyHr/frame_000096.jpg",
+            "/tmp/.tmpfloyHr/frame_000097.jpg",
+            "/tmp/.tmpfloyHr/frame_000098.jpg",
+            "/tmp/.tmpfloyHr/frame_000099.jpg",
+            "/tmp/.tmpfloyHr/frame_000100.jpg",
+            "/tmp/.tmpfloyHr/frame_000101.jpg",
+            "/tmp/.tmpfloyHr/frame_000102.jpg",
+            "/tmp/.tmpfloyHr/frame_000103.jpg",
+            "/tmp/.tmpfloyHr/frame_000104.jpg",
+            "/tmp/.tmpfloyHr/frame_000105.jpg",
+            "/tmp/.tmpfloyHr/frame_000106.jpg",
+            "/tmp/.tmpfloyHr/frame_000107.jpg",
+            "/tmp/.tmpfloyHr/frame_000108.jpg",
+            "/tmp/.tmpfloyHr/frame_000109.jpg",
+            "/tmp/.tmpfloyHr/frame_000110.jpg",
+            "/tmp/.tmpfloyHr/frame_000111.jpg",
+            "/tmp/.tmpfloyHr/frame_000112.jpg",
+            "/tmp/.tmpfloyHr/frame_000113.jpg",
+            "/tmp/.tmpfloyHr/frame_000114.jpg",
+            "/tmp/.tmpfloyHr/frame_000115.jpg",
+            "/tmp/.tmpfloyHr/frame_000116.jpg",
+            "/tmp/.tmpfloyHr/frame_000117.jpg",
+            "/tmp/.tmpfloyHr/frame_000118.jpg",
+            "/tmp/.tmpfloyHr/frame_000119.jpg",
+            "/tmp/.tmpfloyHr/frame_000120.jpg",
+            "/tmp/.tmpfloyHr/frame_000121.jpg",
+            "/tmp/.tmpfloyHr/frame_000122.jpg",
+            "/tmp/.tmpfloyHr/frame_000123.jpg",
+            "/tmp/.tmpfloyHr/frame_000124.jpg",
+            "/tmp/.tmpfloyHr/frame_000125.jpg",
+            "/tmp/.tmpfloyHr/frame_000126.jpg",
+            "/tmp/.tmpfloyHr/frame_000127.jpg",
+            "/tmp/.tmpfloyHr/frame_000128.jpg",
+            "/tmp/.tmpfloyHr/frame_000129.jpg",
+            "/tmp/.tmpfloyHr/frame_000130.jpg",
+            "/tmp/.tmpfloyHr/frame_000131.jpg",
+            "/tmp/.tmpfloyHr/frame_000132.jpg",
+            "/tmp/.tmpfloyHr/frame_000133.jpg",
+            "/tmp/.tmpfloyHr/frame_000134.jpg",
+            "/tmp/.tmpfloyHr/frame_000135.jpg",
+            "/tmp/.tmpfloyHr/frame_000136.jpg",
+            "/tmp/.tmpfloyHr/frame_000137.jpg",
+            "/tmp/.tmpfloyHr/frame_000138.jpg",
+            "/tmp/.tmpfloyHr/frame_000139.jpg",
+            "/tmp/.tmpfloyHr/frame_000140.jpg",
+            "/tmp/.tmpfloyHr/frame_000141.jpg",
+            "/tmp/.tmpfloyHr/frame_000142.jpg",
+            "/tmp/.tmpfloyHr/frame_000143.jpg",
+            "/tmp/.tmpfloyHr/frame_000144.jpg",
+            "/tmp/.tmpfloyHr/frame_000145.jpg",
+            "/tmp/.tmpfloyHr/frame_000146.jpg",
+            "/tmp/.tmpfloyHr/frame_000147.jpg",
+            "/tmp/.tmpfloyHr/frame_000148.jpg",
+            "/tmp/.tmpfloyHr/frame_000149.jpg",
+            "/tmp/.tmpfloyHr/frame_000150.jpg"
+          ],
+          "frame_count": 150,
+          "output_dir": "/tmp/.tmpfloyHr",
+          "source_video": {
+            "path": "/data/input/docker_cp_test/view2.mp4",
+            "filename": "view2.mp4"
+          }
+        }
+      ],
+      "validation": [
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000001.jpg",
+          "size": 47597,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000002.jpg",
+          "size": 47565,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000003.jpg",
+          "size": 47462,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000004.jpg",
+          "size": 47587,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000005.jpg",
+          "size": 48084,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000006.jpg",
+          "size": 47557,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000007.jpg",
+          "size": 47485,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000008.jpg",
+          "size": 47572,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000009.jpg",
+          "size": 47767,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000010.jpg",
+          "size": 47474,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000011.jpg",
+          "size": 47457,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000012.jpg",
+          "size": 47466,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000013.jpg",
+          "size": 47704,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000014.jpg",
+          "size": 47448,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000015.jpg",
+          "size": 47545,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000016.jpg",
+          "size": 47480,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000017.jpg",
+          "size": 47579,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000018.jpg",
+          "size": 47245,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000019.jpg",
+          "size": 47528,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000020.jpg",
+          "size": 47404,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000021.jpg",
+          "size": 47577,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000022.jpg",
+          "size": 47389,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000023.jpg",
+          "size": 47407,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000024.jpg",
+          "size": 47245,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000025.jpg",
+          "size": 47548,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000026.jpg",
+          "size": 47244,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000027.jpg",
+          "size": 47405,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000028.jpg",
+          "size": 47349,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000029.jpg",
+          "size": 47370,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000030.jpg",
+          "size": 47071,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000031.jpg",
+          "size": 47257,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000032.jpg",
+          "size": 46920,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000033.jpg",
+          "size": 46982,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000034.jpg",
+          "size": 46849,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000035.jpg",
+          "size": 46746,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000036.jpg",
+          "size": 46511,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000037.jpg",
+          "size": 46588,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000038.jpg",
+          "size": 46493,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000039.jpg",
+          "size": 46683,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000040.jpg",
+          "size": 46379,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000041.jpg",
+          "size": 46378,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000042.jpg",
+          "size": 46128,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000043.jpg",
+          "size": 46243,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000044.jpg",
+          "size": 45978,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000045.jpg",
+          "size": 46059,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000046.jpg",
+          "size": 45945,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000047.jpg",
+          "size": 46036,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000048.jpg",
+          "size": 45821,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000049.jpg",
+          "size": 46019,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000050.jpg",
+          "size": 46016,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000051.jpg",
+          "size": 46057,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000052.jpg",
+          "size": 46199,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000053.jpg",
+          "size": 46335,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000054.jpg",
+          "size": 46178,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000055.jpg",
+          "size": 46496,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000056.jpg",
+          "size": 46314,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000057.jpg",
+          "size": 46496,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000058.jpg",
+          "size": 46547,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000059.jpg",
+          "size": 46874,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000060.jpg",
+          "size": 46751,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000061.jpg",
+          "size": 46815,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000062.jpg",
+          "size": 46780,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000063.jpg",
+          "size": 47067,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000064.jpg",
+          "size": 47069,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000065.jpg",
+          "size": 47221,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000066.jpg",
+          "size": 47057,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000067.jpg",
+          "size": 47335,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000068.jpg",
+          "size": 47067,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000069.jpg",
+          "size": 47371,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000070.jpg",
+          "size": 47381,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000071.jpg",
+          "size": 47412,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000072.jpg",
+          "size": 47206,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000073.jpg",
+          "size": 47373,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000074.jpg",
+          "size": 47306,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000075.jpg",
+          "size": 47398,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000076.jpg",
+          "size": 47270,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000077.jpg",
+          "size": 47405,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000078.jpg",
+          "size": 47243,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000079.jpg",
+          "size": 47328,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000080.jpg",
+          "size": 47213,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000081.jpg",
+          "size": 47433,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000082.jpg",
+          "size": 47169,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000083.jpg",
+          "size": 47153,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000084.jpg",
+          "size": 46955,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000085.jpg",
+          "size": 47264,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000086.jpg",
+          "size": 46978,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000087.jpg",
+          "size": 46814,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000088.jpg",
+          "size": 46919,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000089.jpg",
+          "size": 47136,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000090.jpg",
+          "size": 46938,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000091.jpg",
+          "size": 47031,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000092.jpg",
+          "size": 47004,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000093.jpg",
+          "size": 47035,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000094.jpg",
+          "size": 46837,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000095.jpg",
+          "size": 46904,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000096.jpg",
+          "size": 46632,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000097.jpg",
+          "size": 46822,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000098.jpg",
+          "size": 46621,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000099.jpg",
+          "size": 46988,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000100.jpg",
+          "size": 46517,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000101.jpg",
+          "size": 46531,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000102.jpg",
+          "size": 46369,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000103.jpg",
+          "size": 46438,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000104.jpg",
+          "size": 46191,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000105.jpg",
+          "size": 46308,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000106.jpg",
+          "size": 45987,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000107.jpg",
+          "size": 46040,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000108.jpg",
+          "size": 46008,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000109.jpg",
+          "size": 46179,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000110.jpg",
+          "size": 46085,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000111.jpg",
+          "size": 46251,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000112.jpg",
+          "size": 46006,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000113.jpg",
+          "size": 46053,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000114.jpg",
+          "size": 45886,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000115.jpg",
+          "size": 45880,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000116.jpg",
+          "size": 45737,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000117.jpg",
+          "size": 46055,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000118.jpg",
+          "size": 45853,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000119.jpg",
+          "size": 45805,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000120.jpg",
+          "size": 45727,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000121.jpg",
+          "size": 45855,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000122.jpg",
+          "size": 45718,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000123.jpg",
+          "size": 45930,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000124.jpg",
+          "size": 45998,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000125.jpg",
+          "size": 46214,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000126.jpg",
+          "size": 46325,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000127.jpg",
+          "size": 46538,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000128.jpg",
+          "size": 46356,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000129.jpg",
+          "size": 46672,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000130.jpg",
+          "size": 46633,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000131.jpg",
+          "size": 46854,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000132.jpg",
+          "size": 46944,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000133.jpg",
+          "size": 46967,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000134.jpg",
+          "size": 46957,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000135.jpg",
+          "size": 47194,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000136.jpg",
+          "size": 47099,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000137.jpg",
+          "size": 47219,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000138.jpg",
+          "size": 47263,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000139.jpg",
+          "size": 47446,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000140.jpg",
+          "size": 47255,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000141.jpg",
+          "size": 47401,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000142.jpg",
+          "size": 47269,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000143.jpg",
+          "size": 47342,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000144.jpg",
+          "size": 47466,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000145.jpg",
+          "size": 47530,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000146.jpg",
+          "size": 47426,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000147.jpg",
+          "size": 47554,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000148.jpg",
+          "size": 47435,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000149.jpg",
+          "size": 47705,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpk2nfTf/frame_000150.jpg",
+          "size": 47659,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000001.jpg",
+          "size": 45719,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000002.jpg",
+          "size": 45824,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000003.jpg",
+          "size": 45713,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000004.jpg",
+          "size": 45867,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000005.jpg",
+          "size": 46486,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000006.jpg",
+          "size": 46068,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000007.jpg",
+          "size": 45900,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000008.jpg",
+          "size": 46115,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000009.jpg",
+          "size": 46377,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000010.jpg",
+          "size": 45946,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000011.jpg",
+          "size": 46126,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000012.jpg",
+          "size": 45968,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000013.jpg",
+          "size": 46372,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000014.jpg",
+          "size": 46027,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000015.jpg",
+          "size": 46106,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000016.jpg",
+          "size": 46119,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000017.jpg",
+          "size": 46339,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000018.jpg",
+          "size": 46121,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000019.jpg",
+          "size": 46373,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000020.jpg",
+          "size": 46192,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000021.jpg",
+          "size": 46478,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000022.jpg",
+          "size": 46412,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000023.jpg",
+          "size": 46359,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000024.jpg",
+          "size": 46138,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000025.jpg",
+          "size": 46351,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000026.jpg",
+          "size": 46115,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000027.jpg",
+          "size": 46322,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000028.jpg",
+          "size": 46050,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000029.jpg",
+          "size": 46211,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000030.jpg",
+          "size": 45870,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000031.jpg",
+          "size": 45943,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000032.jpg",
+          "size": 45689,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000033.jpg",
+          "size": 45865,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000034.jpg",
+          "size": 45657,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000035.jpg",
+          "size": 45680,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000036.jpg",
+          "size": 45476,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000037.jpg",
+          "size": 45485,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000038.jpg",
+          "size": 45218,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000039.jpg",
+          "size": 45218,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000040.jpg",
+          "size": 45187,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000041.jpg",
+          "size": 45177,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000042.jpg",
+          "size": 45064,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000043.jpg",
+          "size": 45019,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000044.jpg",
+          "size": 44831,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000045.jpg",
+          "size": 45090,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000046.jpg",
+          "size": 44838,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000047.jpg",
+          "size": 44788,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000048.jpg",
+          "size": 44686,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000049.jpg",
+          "size": 44914,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000050.jpg",
+          "size": 44667,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000051.jpg",
+          "size": 44849,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000052.jpg",
+          "size": 44647,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000053.jpg",
+          "size": 45099,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000054.jpg",
+          "size": 44903,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000055.jpg",
+          "size": 45063,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000056.jpg",
+          "size": 44999,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000057.jpg",
+          "size": 45217,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000058.jpg",
+          "size": 45096,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000059.jpg",
+          "size": 45169,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000060.jpg",
+          "size": 45198,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000061.jpg",
+          "size": 45534,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000062.jpg",
+          "size": 45214,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000063.jpg",
+          "size": 45454,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000064.jpg",
+          "size": 45398,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000065.jpg",
+          "size": 45714,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000066.jpg",
+          "size": 45417,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000067.jpg",
+          "size": 45673,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000068.jpg",
+          "size": 45527,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000069.jpg",
+          "size": 45728,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000070.jpg",
+          "size": 45612,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000071.jpg",
+          "size": 45693,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000072.jpg",
+          "size": 45655,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000073.jpg",
+          "size": 45857,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000074.jpg",
+          "size": 45567,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000075.jpg",
+          "size": 45647,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000076.jpg",
+          "size": 45677,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000077.jpg",
+          "size": 45918,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000078.jpg",
+          "size": 45639,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000079.jpg",
+          "size": 45807,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000080.jpg",
+          "size": 45738,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000081.jpg",
+          "size": 45849,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000082.jpg",
+          "size": 45652,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000083.jpg",
+          "size": 45707,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000084.jpg",
+          "size": 45646,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000085.jpg",
+          "size": 45835,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000086.jpg",
+          "size": 45350,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000087.jpg",
+          "size": 45420,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000088.jpg",
+          "size": 45381,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000089.jpg",
+          "size": 45711,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000090.jpg",
+          "size": 45491,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000091.jpg",
+          "size": 45467,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000092.jpg",
+          "size": 45380,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000093.jpg",
+          "size": 45657,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000094.jpg",
+          "size": 45319,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000095.jpg",
+          "size": 45431,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000096.jpg",
+          "size": 45260,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000097.jpg",
+          "size": 45568,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000098.jpg",
+          "size": 45204,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000099.jpg",
+          "size": 45413,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000100.jpg",
+          "size": 45172,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000101.jpg",
+          "size": 45232,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000102.jpg",
+          "size": 45021,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000103.jpg",
+          "size": 45195,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000104.jpg",
+          "size": 44806,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000105.jpg",
+          "size": 45050,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000106.jpg",
+          "size": 44806,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000107.jpg",
+          "size": 44958,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000108.jpg",
+          "size": 44809,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000109.jpg",
+          "size": 45109,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000110.jpg",
+          "size": 44790,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000111.jpg",
+          "size": 45069,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000112.jpg",
+          "size": 44684,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000113.jpg",
+          "size": 44870,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000114.jpg",
+          "size": 44570,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000115.jpg",
+          "size": 44825,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000116.jpg",
+          "size": 44569,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000117.jpg",
+          "size": 44922,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000118.jpg",
+          "size": 44544,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000119.jpg",
+          "size": 44615,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000120.jpg",
+          "size": 44583,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000121.jpg",
+          "size": 44791,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000122.jpg",
+          "size": 44627,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000123.jpg",
+          "size": 44754,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000124.jpg",
+          "size": 44858,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000125.jpg",
+          "size": 45077,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000126.jpg",
+          "size": 45090,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000127.jpg",
+          "size": 45262,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000128.jpg",
+          "size": 45136,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000129.jpg",
+          "size": 45614,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000130.jpg",
+          "size": 45392,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000131.jpg",
+          "size": 45565,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000132.jpg",
+          "size": 45650,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000133.jpg",
+          "size": 45764,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000134.jpg",
+          "size": 45756,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000135.jpg",
+          "size": 45841,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000136.jpg",
+          "size": 45748,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000137.jpg",
+          "size": 46038,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000138.jpg",
+          "size": 45842,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000139.jpg",
+          "size": 46118,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000140.jpg",
+          "size": 46031,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000141.jpg",
+          "size": 46257,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000142.jpg",
+          "size": 46139,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000143.jpg",
+          "size": 46242,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000144.jpg",
+          "size": 46136,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000145.jpg",
+          "size": 46305,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000146.jpg",
+          "size": 46071,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000147.jpg",
+          "size": 46121,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000148.jpg",
+          "size": 46009,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000149.jpg",
+          "size": 46350,
+          "modified": 1772234630
+        },
+        {
+          "path": "/tmp/.tmpfloyHr/frame_000150.jpg",
+          "size": 46414,
+          "modified": 1772234630
+        }
+      ]
+    },
+    "manifest_path": "/data/output/manifest.json",
+    "colmap_sparse_path": null,
+    "colmap_points": null,
+    "model_output": null,
+    "gaussian_count": null,
+    "ply_path": null,
+    "splat_path": null
+  }
+}

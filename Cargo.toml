@@ -1,0 +1,82 @@
+[package]
+name = "three-dgs-processor"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.83"
+
+[[bin]]
+name = "3dgs-processor"
+path = "src/main.rs"
+
+[lib]
+name = "three_dgs_processor"
+path = "src/lib.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+tokio-util = "0.7"
+futures = "0.3"
+async-trait = "0.1"
+
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "json", "fmt", "ansi"] }
+
+# Credential redaction
+regex = "1.10"
+
+# File watching
+notify = "6.1"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# System utilities
+num_cpus = "1.16"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3.12"
+sysinfo = "0.30"
+once_cell = "1.19"
+
+# Image processing (disable AVIF to avoid edition2024 requirement)
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+
+# Process execution
+tokio-process = "0.2"
+
+# Dynamic library loading for plugins
+libloading = "0.8"
+
+# HTTP server for health check endpoint
+axum = "0.7"
+
+# Azure SDK for Blob Storage (batch mode)
+azure_storage_blob = "0.9"
+azure_identity = "0.32"
+azure_core = "0.32"
+
+[features]
+default = []
+gsplat-plugin = []
+3dgs-cpp-plugin = []
+test-images = []  # Feature flag for using real test images instead of mock data
+
+[dev-dependencies]
+tokio-test = "0.4"
+serial_test = "3.0"
+reqwest = { version = "0.12", features = ["blocking"] }
+filetime = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

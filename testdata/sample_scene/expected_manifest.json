@@ -1,0 +1,30 @@
+{
+  "job_id": "sample-test-job",
+  "processing_timestamp": "2024-01-01T00:00:00Z",
+  "videos": [
+    {
+      "filename": "view1.mp4",
+      "frame_count": 150,
+      "resolution": "1280x720",
+      "fps": 30.0,
+      "duration_secs": 5.0,
+      "frames": []
+    },
+    {
+      "filename": "view2.mp4",
+      "frame_count": 150,
+      "resolution": "1280x720",
+      "fps": 30.0,
+      "duration_secs": 5.0,
+      "frames": []
+    },
+    {
+      "filename": "view3.mp4",
+      "frame_count": 150,
+      "resolution": "1280x720",
+      "fps": 30.0,
+      "duration_secs": 5.0,
+      "frames": []
+    }
+  ]
+}

@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COLMAP & The 3DGS Training Loop</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --ink:    #e8e4d9;
+  --paper:  #0d0e12;
+  --panel:  #131520;
+  --deep:   #0a0b10;
+  --rim:    rgba(255,255,255,0.07);
+  --amber:  #e8a825;
+  --cyan:   #25c4e8;
+  --coral:  #e84f35;
+  --sage:   #6bcf7f;
+  --lilac:  #a78bfa;
+  --dim:    #4a4f66;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', monospace;
+  overflow-x: hidden;
+}
+
+/* noise grain overlay */
+body::after {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: .4;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(13,14,18,0.96);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--rim);
+  display: flex; align-items: center; gap: 0;
+  padding: 0 2rem; height: 52px;
+  overflow-x: auto;
+}
+.nav-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: .9rem; color: var(--amber);
+  white-space: nowrap; margin-right: 2rem;
+  flex-shrink: 0;
+}
+nav a {
+  font-size: .58rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--dim); text-decoration: none; padding: 0 1rem; height: 52px;
+  display: flex; align-items: center; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: color .2s, border-color .2s; flex-shrink: 0;
+}
+nav a:hover { color: var(--ink); border-bottom-color: var(--amber); }
+
+/* ── HERO ── */
+.hero {
+  max-width: 1080px; margin: 0 auto;
+  padding: 4rem 2rem 2.5rem;
+}
+.chapter-tag {
+  font-size: .58rem; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--amber); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: .7rem;
+}
+.chapter-tag::before { content:''; width:32px; height:1px; background:var(--amber); }
+.hero h1 {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1.06; color: #fff; font-weight: 400;
+}
+.hero h1 i { font-style: italic; color: var(--amber); }
+.hero-body {
+  margin-top: 1rem; max-width: 640px;
+  font-size: .78rem; line-height: 1.9; color: var(--dim);
+}
+
+/* ── LAYOUT ── */
+.page { max-width: 1080px; margin: 0 auto; padding: 0 2rem 6rem; }
+.section { margin-bottom: 5rem; }
+
+.sec-head {
+  display: flex; align-items: baseline; gap: 1rem;
+  margin-bottom: 1.4rem; padding-bottom: .7rem;
+  border-bottom: 1px solid var(--rim);
+}
+.sec-num { font-size: .6rem; color: var(--dim); letter-spacing: .1em; }
+h2 {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.65rem; color: #fff; font-weight: 400;
+}
+h2 i { font-style: italic; color: var(--cyan); }
+h3 { font-size: .78rem; font-weight: 600; color: var(--amber); margin-bottom: .4rem; }
+p  { font-size: .77rem; color: var(--dim); line-height: 1.85; margin-bottom: .7rem; }
+strong { color: var(--ink); }
+
+/* ── CARD ── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--rim);
+  border-radius: 14px;
+  padding: 1.5rem; margin: 1.2rem 0;
+  position: relative; overflow: hidden;
+}
+.card-head {
+  font-size: .57rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--dim); margin-bottom: 1.2rem;
+}
+.stripe { position: absolute; top:0; left:0; right:0; height:2px; }
+.s-amber { background: linear-gradient(90deg,var(--amber),#fcd98a); }
+.s-cyan  { background: linear-gradient(90deg,var(--cyan), #a0eaf8); }
+.s-coral { background: linear-gradient(90deg,var(--coral),#f8a090); }
+.s-sage  { background: linear-gradient(90deg,var(--sage), #b0f0ba); }
+.s-lilac { background: linear-gradient(90deg,var(--lilac),#d4bbff); }
+.s-multi { background: linear-gradient(90deg,var(--amber),var(--cyan),var(--coral),var(--sage)); }
+
+canvas { display:block; width:100%; border-radius:8px; }
+.cap {
+  font-size: .58rem; color: var(--dim); line-height: 1.6;
+  margin-top: .6rem; text-align: center;
+}
+
+/* ── STEP SIDEBAR ── */
+.step-layout { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+.steps-list { display: flex; flex-direction: column; gap: .5rem; }
+.step-item {
+  display: flex; gap: .9rem; align-items: flex-start;
+  padding: .85rem 1rem; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--rim);
+  border-left: 3px solid var(--dim);
+  cursor: pointer; transition: all .18s;
+}
+.step-item:hover { border-left-color: var(--amber); background: #1a1c28; }
+.step-item.active { border-left-color: var(--cyan); background: #151820; }
+.step-badge {
+  font-family: 'Instrument Serif', serif;
+  font-size: .75rem; font-style: italic;
+  background: var(--dim); color: var(--paper);
+  border-radius: 4px; padding: 2px 7px; flex-shrink: 0;
+  transition: background .18s;
+}
+.step-item.active .step-badge { background: var(--cyan); color: #000; }
+.step-item:hover .step-badge  { background: var(--amber); color: #000; }
+.step-title { font-size: .78rem; font-weight: 600; color: var(--ink); margin-bottom: .2rem; }
+.step-body  { font-size: .72rem; color: var(--dim); line-height: 1.7; }
+
+.sticky-canvas { position: sticky; top: 68px; }
+.sticky-canvas canvas { width:100%; }
+#stepLabel { font-size:.6rem; color:var(--dim); margin-top:.5rem; text-align:center; min-height:2.5em; }
+
+/* ── LOOP ANIMATION ── */
+#loopCanvas { border-radius:12px; }
+
+/* ── LOSS CHART ── */
+#lossCanvas { cursor: crosshair; }
+
+/* ── CONTROLS ── */
+.ctrl { display:flex; align-items:center; gap:.7rem; margin:.4rem 0; }
+.ctrl label { font-size:.65rem; color:var(--dim); min-width:100px; }
+.ctrl input[type=range] { flex:1; accent-color:var(--cyan); cursor:pointer; }
+.ctrl .val { font-size:.65rem; color:var(--amber); min-width:50px; text-align:right; }
+
+/* ── CALLOUT ── */
+.callout {
+  border-left: 3px solid var(--amber);
+  background: rgba(232,168,37,.06);
+  border-radius: 0 8px 8px 0;
+  padding: .7rem 1rem; font-size:.75rem;
+  color: rgba(232,168,37,.8); line-height:1.7;
+  margin:.8rem 0;
+}
+.callout b { color:var(--amber); }
+
+/* ── TWO COL ── */
+.two { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+@media(max-width:700px){ .two,.step-layout{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-title">3DGS · Pre-Training</div>
+  <a href="#sfm">What is SfM</a>
+  <a href="#colmap">COLMAP Steps</a>
+  <a href="#bundle">Bundle Adjustment</a>
+  <a href="#handoff">SfM → 3DGS</a>
+  <a href="#loop">Training Loop</a>
+  <a href="#loss">Loss & Convergence</a>
+  <a href="#densify">Densification</a>
+</nav>
+
+<div class="hero">
+  <div class="chapter-tag">Visual Deep Dive</div>
+  <h1>From Raw Photos<br>to <i>Trained Scene</i></h1>
+  <p class="hero-body">
+    3D Gaussian Splatting doesn't start from nothing. Before a single Gaussian is trained, 
+    <strong>COLMAP</strong> must figure out where every camera was standing and build a rough 
+    3D skeleton from feature matches. Only then does the 30,000-iteration training loop begin, 
+    sculpting millions of fuzzy blobs into a photorealistic scene.
+  </p>
+</div>
+
+<div class="page">
+
+<!-- ══════════════════════════════════
+     §1  WHAT IS SFM
+══════════════════════════════════ -->
+<div class="section" id="sfm">
+  <div class="sec-head">
+    <span class="sec-num">§01</span>
+    <h2>What is <i>Structure-from-Motion</i>?</h2>
+  </div>
+
+  <p>
+    A photograph destroys depth — the 3D world is flattened onto a 2D sensor and all distance information is lost. 
+    But shoot the <strong>same scene from multiple angles</strong> and depth becomes recoverable. 
+    The trick is triangulation: if the same physical point is visible in two photographs, and you know 
+    where each camera was, you can trace a ray from each camera and find where those rays intersect in 3D.
+  </p>
+  <p>
+    <strong>Structure-from-Motion</strong> (SfM) automates this entirely — from a pile of unordered photos 
+    it simultaneously solves for every camera's position and reconstructs thousands of 3D landmark points. 
+    No GPS, no markers, no manual measurement. Just photographs and linear algebra.
+  </p>
+
+  <div class="card">
+    <div class="stripe s-amber"></div>
+    <div class="card-head">Core concept — triangulation from two cameras</div>
+    <canvas id="cTriang" width="980" height="230" style="max-width:980px;"></canvas>
+    <p class="cap">
+      The orange cube corner appears in both photos · Each camera defines a ray into 3D space · 
+      Where rays cross = the 3D position · COLMAP does this for tens of thousands of points simultaneously
+    </p>
+  </div>
+
+  <div class="callout">
+    <b>Why do you need so many photos?</b> Each 3D point needs to appear in at least 2 images to be triangulated, 
+    but in practice 4–8 overlapping views makes it well-constrained and robust to noise. 
+    COLMAP recommends 60–80% overlap between consecutive shots.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     §2  COLMAP STEPS
+══════════════════════════════════ -->
+<div class="section" id="colmap">
+  <div class="sec-head">
+    <span class="sec-num">§02</span>
+    <h2>COLMAP — <i>Six Stages</i> from Photos to Points</h2>
+  </div>
+
+  <p>Click any step to see what COLMAP is doing at that stage. Each stage feeds into the next.</p>
+
+  <div class="step-layout">
+    <!-- Steps list -->
+    <div class="steps-list" id="stepsList">
+
+      <div class="step-item active" data-step="0">
+        <span class="step-badge">1</span>
+        <div>
+          <div class="step-title">Feature Extraction (SIFT)</div>
+          <div class="step-body">
+            COLMAP runs the SIFT algorithm on every photo. SIFT hunts for distinctive visual 
+            landmarks — corners, blobs, edges that are stable under changes in lighting, scale, 
+            and viewpoint. Each landmark (keypoint) gets a <strong>128-number descriptor</strong> — 
+            a fingerprint of the local image patch. A single 12-megapixel photo typically yields 
+            10,000–50,000 keypoints.
+          </div>
+        </div>
+      </div>
+
+      <div class="step-item" data-step="1">
+        <span class="step-badge">2</span>
+        <div>
+          <div class="step-title">Feature Matching</div>
+          <div class="step-body">
+            Now COLMAP asks: "which keypoint in Photo A is the same physical point as which keypoint 
+            in Photo B?" It compares the 128-number descriptors — close descriptors = likely same point. 
+            This is O(N²) in the number of image pairs, so COLMAP uses approximate nearest-neighbour 
+            search (FLANN) to stay tractable. Only pairs with <strong>many mutual matches (&gt;15)</strong> 
+            are kept.
+          </div>
+        </div>
+      </div>
+
+      <div class="step-item" data-step="2">
+        <span class="step-badge">3</span>
+        <div>
+          <div class="step-title">Geometric Verification (RANSAC)</div>
+          <div class="step-body">
+            Raw descriptor matches are noisy — some are just wrong. COLMAP runs 
+            <strong>RANSAC</strong> (Random Sample Consensus): repeatedly sample 8 random match 
+            pairs, compute the fundamental matrix F they imply, count how many <em>other</em> 
+            matches agree with that geometry (inliers). The hypothesis with the most inliers wins. 
+            Outliers — matches that don't fit any consistent geometry — are thrown away.
+          </div>
+        </div>
+      </div>
+
+      <div class="step-item" data-step="3">
+        <span class="step-badge">4</span>
+        <div>
+          <div class="step-title">Incremental Reconstruction</div>
+          <div class="step-body">
+            Start with the image pair that has the most verified matches. Recover their relative 
+            camera poses from the fundamental matrix, triangulate the shared points into 3D. 
+            Then greedily add images one by one: each new image must have enough already-triangulated 
+            3D points visible in it to solve for its camera position using the 
+            <strong>PnP (Perspective-n-Point)</strong> algorithm. As cameras are added, more points 
+            can be triangulated.
+          </div>
+        </div>
+      </div>
+
+      <div class="step-item" data-step="4">
+        <span class="step-badge">5</span>
+        <div>
+          <div class="step-title">Bundle Adjustment</div>
+          <div class="step-body">
+            All camera poses and 3D point positions accumulated so far have small errors that 
+            compound. Bundle adjustment runs a global optimisation: jointly tweak every camera 
+            pose and every 3D point position to minimise <strong>reprojection error</strong> — 
+            the pixel distance between where each 3D point <em>projects to</em> and where it 
+            was <em>actually observed</em> in each photo. Uses sparse Levenberg-Marquardt. 
+            Run every ~10 images added, and once at the very end.
+          </div>
+        </div>
+      </div>
+
+      <div class="step-item" data-step="5">
+        <span class="step-badge">6</span>
+        <div>
+          <div class="step-title">Sparse Point Cloud Output</div>
+          <div class="step-body">
+            The finished product: <strong>calibrated camera poses</strong> (position + orientation + 
+            intrinsics) for every input photo, plus a <strong>sparse 3D point cloud</strong> 
+            (typically 50K–500K points). This is saved as a .ply file and a cameras.bin — the 
+            two inputs that 3DGS needs to initialise. One Gaussian will be seeded at each 3D point.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sticky diagram -->
+    <div class="sticky-canvas">
+      <div class="card" style="margin:0; padding:1.2rem;">
+        <div class="stripe s-amber"></div>
+        <canvas id="cStep" width="340" height="380" style="max-width:340px; background:#0a0b10; border-radius:8px;"></canvas>
+        <div id="stepLabel">SIFT keypoints detected on each image</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     §3  BUNDLE ADJUSTMENT DEEP DIVE
+══════════════════════════════════ -->
+<div class="section" id="bundle">
+  <div class="sec-head">
+    <span class="sec-num">§03</span>
+    <h2><i>Bundle Adjustment</i> — The Critical Refinement</h2>
+  </div>
+
+  <p>
+    Bundle adjustment is the step that separates a rough reconstruction from a precise one. 
+    The name comes from the "bundle of rays" from each camera to each 3D point — 
+    the optimiser adjusts both ends of every ray simultaneously.
+  </p>
+  <p>
+    For each 3D point <strong>P</strong> and each camera <strong>C</strong> that observed it, 
+    bundle adjustment asks: if I project P through camera C using the current camera model, 
+    does it land where we actually saw it in the photo? The pixel-distance error is the 
+    <em>reprojection error</em>. Minimise the sum of all reprojection errors squared across 
+    all points and all cameras.
+  </p>
+
+  <div class="card">
+    <div class="stripe s-cyan"></div>
+    <div class="card-head">Reprojection error — what bundle adjustment minimises</div>
+    <canvas id="cBundle" width="980" height="250" style="max-width:980px;"></canvas>
+    <p class="cap">
+      Blue = observed position in photo · Orange = where 3D point currently projects to · 
+      Red line = reprojection error · Bundle adjustment drives all red lines to near-zero by 
+      moving cameras AND 3D points simultaneously
+    </p>
+  </div>
+
+  <div class="two" style="margin-top:1rem;">
+    <div class="card" style="margin:0;">
+      <div class="stripe s-cyan"></div>
+      <h3>Before bundle adjustment</h3>
+      <p>Each image registered independently accumulates small errors. A point triangulated from cameras 1 and 2 lands in a slightly wrong position when projected into camera 5. These errors compound across the reconstruction.</p>
+    </div>
+    <div class="card" style="margin:0;">
+      <div class="stripe s-sage"></div>
+      <h3>After bundle adjustment</h3>
+      <p>Global optimisation finds the joint assignment of camera poses and 3D positions that is <strong>most consistent with all observations at once</strong>. Typical indoor scenes achieve sub-pixel reprojection error after convergence.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     §4  HANDOFF TO 3DGS
+══════════════════════════════════ -->
+<div class="section" id="handoff">
+  <div class="sec-head">
+    <span class="sec-num">§04</span>
+    <h2>The Handoff — Sparse Cloud <i>Becomes</i> Gaussians</h2>
+  </div>
+
+  <p>
+    COLMAP hands 3DGS two things: a .ply file of 3D points and a file of camera poses. 
+    3DGS reads these and seeds <strong>one Gaussian at each 3D point</strong>. 
+    The initial values are set to reasonable defaults — not optimised, just a sensible starting point 
+    so gradients flow in meaningful directions from iteration one.
+  </p>
+
+  <div class="card">
+    <div class="stripe s-coral"></div>
+    <div class="card-head">From sparse points to initialised Gaussians — then to trained scene</div>
+    <canvas id="cInit" width="980" height="210" style="max-width:980px;"></canvas>
+    <p class="cap">
+      Left: COLMAP sparse points · Middle: each point becomes a near-transparent sphere Gaussian · 
+      Right: after 30K training iterations — shaped, coloured, multiplied by densification
+    </p>
+  </div>
+
+  <div class="two" style="margin-top:1rem;">
+    <div class="card" style="margin:0; padding:1.2rem;">
+      <div class="stripe s-coral"></div>
+      <h3>Initial Gaussian values</h3>
+      <div class="steps-list">
+        <div class="step-item" style="cursor:default;">
+          <span class="step-badge" style="background:var(--coral);color:#fff;">μ</span>
+          <div><div class="step-title">Position</div><div class="step-body">Exactly the COLMAP 3D point coordinate</div></div>
+        </div>
+        <div class="step-item" style="cursor:default;">
+          <span class="step-badge" style="background:var(--coral);color:#fff;">σ</span>
+          <div><div class="step-title">Scale</div><div class="step-body">Mean distance to 3 nearest neighbours — so initial blobs don't overlap</div></div>
+        </div>
+        <div class="step-item" style="cursor:default;">
+          <span class="step-badge" style="background:var(--coral);color:#fff;">R</span>
+          <div><div class="step-title">Rotation</div><div class="step-body">Identity quaternion (w=1,x=y=z=0) — isotropic sphere, trained into shape</div></div>
+        </div>
+        <div class="step-item" style="cursor:default;">
+          <span class="step-badge" style="background:var(--coral);color:#fff;">α</span>
+          <div><div class="step-title">Opacity</div><div class="step-body">logit(0.1) ≈ −2.2 — starts nearly invisible, must earn its place</div></div>
+        </div>
+        <div class="step-item" style="cursor:default;">
+          <span class="step-badge" style="background:var(--coral);color:#fff;">c</span>
+          <div><div class="step-title">Color</div><div class="step-body">RGB sampled from the photo pixel at that point's projected location</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin:0; padding:1.2rem;">
+      <div class="stripe s-sage"></div>
+      <h3>Why sparse initialisation works</h3>
+      <p>The sparse cloud doesn't need to be accurate or dense — just <strong>topologically correct</strong>. As long as Gaussians start near the right geometry, gradients will push them toward the right positions.</p>
+      <p>3DGS densifies during training: starting from ~100K sparse points it grows to 3–6 million Gaussians by iteration 15,000. The COLMAP seed saves roughly 5–10× training time versus random initialisation.</p>
+      <p>One practical implication: <strong>regions COLMAP misses become regions 3DGS struggles with</strong>. Featureless surfaces (white walls, sky, water) give COLMAP no keypoints → no seed Gaussians → 3DGS must densify from nothing.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     §5  TRAINING LOOP
+══════════════════════════════════ -->
+<div class="section" id="loop">
+  <div class="sec-head">
+    <span class="sec-num">§05</span>
+    <h2>How It Learns — <i>The Training Loop</i></h2>
+  </div>
+
+  <p>
+    Every training step follows the same four-beat rhythm, repeated <strong>30,000 times</strong>. 
+    The loop is simple in structure but involves millions of parameters being nudged simultaneously. 
+    Watch each stage light up as execution passes through it.
+  </p>
+
+  <div class="card">
+    <div class="stripe s-multi"></div>
+    <div class="card-head">Live animation — one training iteration (×30,000)</div>
+    <canvas id="loopCanvas" width="980" height="280" style="max-width:980px;"></canvas>
+    <p class="cap" id="loopCap">Picking a training camera from the COLMAP-registered dataset…</p>
+  </div>
+
+  <div class="two" style="margin-top:1rem;">
+    <div>
+      <div class="card" style="margin:0 0 1rem 0; padding:1.2rem;">
+        <div class="stripe s-amber"></div>
+        <h3>Step 1 — Pick a Training Camera</h3>
+        <p>One photo is sampled at random. Its COLMAP-recovered pose tells us exactly where the virtual camera is: position in 3D, viewing direction, focal length. This is the "ground truth" viewpoint we'll render from.</p>
+      </div>
+      <div class="card" style="margin:0 0 1rem 0; padding:1.2rem;">
+        <div class="stripe s-cyan"></div>
+        <h3>Step 2 — Rasterise All Gaussians</h3>
+        <p>Every Gaussian in the scene is projected to 2D screen coordinates. They're then depth-sorted (back to front) and alpha-composited tile by tile into a rendered image. This entire process is <strong>differentiable</strong> — gradients can flow back through it.</p>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin:0 0 1rem 0; padding:1.2rem;">
+        <div class="stripe s-coral"></div>
+        <h3>Step 3 — Compute Loss</h3>
+        <p>The rendered image is compared to the real photo pixel-by-pixel:</p>
+        <p style="font-size:.72rem; background:var(--deep); padding:.5rem .7rem; border-radius:6px; color:var(--amber); margin:.4rem 0;">
+          L = 0.8 × L₁(render, photo) + 0.2 × (1 − SSIM)
+        </p>
+        <p><strong>L₁</strong> catches colour errors. <strong>SSIM</strong> (Structural Similarity) catches structural and edge errors that L₁ misses. The combined loss gives better-looking results than either alone.</p>
+      </div>
+      <div class="card" style="margin:0; padding:1.2rem;">
+        <div class="stripe s-lilac"></div>
+        <h3>Step 4 — Backprop + Adam Update</h3>
+        <p>Gradients flow backward through the rasteriser to every Gaussian parameter — all 59 numbers per blob (position, scale, rotation, opacity, spherical harmonic coefficients). The <strong>Adam optimiser</strong> updates each parameter with a per-parameter adaptive learning rate, nudging the scene toward lower loss.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:1rem;">
+    <b>The densification interrupt.</b> Every 100 steps (between iterations 0–15,000), 
+    3DGS pauses the main loop to inspect position gradients. Gaussians that accumulated large 
+    gradients live in under-reconstructed regions and need more blobs. They're either cloned 
+    (if small) or split (if large). Every 3,000 steps, all opacities are reset toward zero, 
+    forcing each Gaussian to re-earn its existence.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     §6  LOSS CURVE
+══════════════════════════════════ -->
+<div class="section" id="loss">
+  <div class="sec-head">
+    <span class="sec-num">§06</span>
+    <h2>Loss &amp; <i>Convergence</i></h2>
+  </div>
+  <p>
+    The loss curve tells the story of training. Three distinct phases are visible in every 3DGS run. 
+    Hover the chart to inspect exact values at any iteration.
+  </p>
+
+  <div class="card">
+    <div class="stripe" style="background:linear-gradient(90deg,var(--coral),var(--amber),var(--sage));"></div>
+    <div class="card-head">Training loss over 30,000 iterations — hover to inspect</div>
+    <canvas id="lossCanvas" width="980" height="280" style="max-width:980px;"></canvas>
+    <p class="cap" id="lossCap">PSNR typically reaches 28–32 dB for indoor scenes after full training</p>
+  </div>
+
+  <div class="two" style="margin-top:.8rem;">
+    <div class="card" style="margin:0; padding:1.2rem;">
+      <div class="stripe s-coral"></div>
+      <h3>Phase 1 · 0–3,000 iters · Rapid Descent</h3>
+      <p>Gaussians move from COLMAP seed positions toward correct geometry. Huge obvious colour and position errors are corrected. Loss drops by ~80% of its total fall in this phase alone. The scene looks blurry but structurally correct.</p>
+    </div>
+    <div class="card" style="margin:0; padding:1.2rem;">
+      <div class="stripe s-amber"></div>
+      <h3>Phase 2 · 3K–15K iters · Densification</h3>
+      <p>Clone/split events add new Gaussians every 100 steps. Each burst briefly increases loss (more competing blobs), then recovers to a lower baseline. Scene count grows from ~200K to ~2–4M Gaussians. Fine details emerge.</p>
+    </div>
+  </div>
+  <div class="card" style="padding:1.2rem; margin-top:.8rem;">
+    <div class="stripe s-sage"></div>
+    <h3>Phase 3 · 15K–30K iters · Fine Refinement</h3>
+    <p>Densification stops. The Gaussian count is fixed. Remaining improvement comes from tuning spherical harmonic colour coefficients (view-dependent colour), fine-tuning opacity and shape. PSNR plateaus. Stopping here versus running longer is a quality/time tradeoff — most scenes don't improve much past 30K iters.</p>
+  </div>
+
+  <div class="card" style="margin-top:1rem; padding:1.2rem;">
+    <div class="stripe" style="background:linear-gradient(90deg,var(--sage),var(--cyan));"></div>
+    <div class="card-head">Scene complexity vs convergence — interactive</div>
+    <div class="two" style="align-items:center;">
+      <div>
+        <div class="ctrl">
+          <label>Scene complexity</label>
+          <input type="range" id="complexity" min="1" max="5" value="3" step="1">
+          <span class="val" id="vComplex">Medium</span>
+        </div>
+        <div class="ctrl">
+          <label>COLMAP quality</label>
+          <input type="range" id="initQ" min="1" max="5" value="3" step="1">
+          <span class="val" id="vInitQ">Good</span>
+        </div>
+        <p style="font-size:.7rem; margin-top:.8rem;">
+          Complex scenes (many objects, reflections, fine detail) need more Gaussians and more iterations. 
+          Good COLMAP initialisation (many photos, good overlap) lets 3DGS start closer to the answer.
+        </p>
+      </div>
+      <canvas id="psnrCanvas" width="380" height="190" style="max-width:380px; border-radius:8px; background:var(--deep);"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     §7  DENSIFICATION
+══════════════════════════════════ -->
+<div class="section" id="densify">
+  <div class="sec-head">
+    <span class="sec-num">§07</span>
+    <h2>Densification — <i>Clone, Split, Prune</i></h2>
+  </div>
+
+  <p>
+    The most novel part of 3DGS is its adaptive density control. Rather than fixing the number of 
+    Gaussians upfront, the system <strong>grows its own geometry</strong> wherever the current 
+    representation is failing.
+  </p>
+
+  <div class="card">
+    <div class="stripe s-sage"></div>
+    <div class="card-head">The three densification decisions</div>
+    <canvas id="cDens" width="980" height="260" style="max-width:980px;"></canvas>
+    <p class="cap">
+      Trigger: position gradient magnitude exceeds threshold (default 0.0002) · 
+      Decision branches on Gaussian size relative to scene scale
+    </p>
+  </div>
+
+  <div class="two" style="margin-top:1rem;">
+    <div class="card" style="margin:0; padding:1.2rem;">
+      <div class="stripe s-cyan"></div>
+      <h3>Clone — small Gaussian, high gradient</h3>
+      <p>A small Gaussian is in an under-reconstructed area (high gradient because rendered colour doesn't match the photo). The fix is <em>more coverage</em>. Solution: duplicate the Gaussian and offset the clone slightly in the gradient direction. Two small blobs now cover what one couldn't.</p>
+    </div>
+    <div class="card" style="margin:0; padding:1.2rem;">
+      <div class="stripe s-amber"></div>
+      <h3>Split — large Gaussian, high gradient</h3>
+      <p>A large Gaussian spans a region with fine detail it can't capture (still high gradient). The fix is <em>finer resolution</em>. Solution: replace the large Gaussian with two smaller ones (scale ÷ 1.6) placed along its principal axis. The two children can now capture the variation the parent couldn't.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:.8rem; padding:1.2rem;">
+    <div class="stripe s-coral"></div>
+    <h3>Prune — opacity near zero</h3>
+    <p>
+      Gaussians that fell to near-zero opacity during training are invisible and contributing nothing. 
+      They're simply deleted. This is triggered every 100 steps by checking sigmoid(logit_opacity) &lt; 0.005. 
+      The opacity reset every 3,000 steps forces this to happen regularly — any Gaussian that isn't 
+      genuinely useful will drain back toward zero and get pruned.
+    </p>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+// ═══════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════
+const $  = id => document.getElementById(id);
+const cx = id => { const c=$( id); return c ? c.getContext('2d') : null; };
+
+function rr(c,x,y,w,h,r,fill,stroke,lw=1){
+  c.beginPath(); c.roundRect(x,y,w,h,r);
+  if(fill ){ c.fillStyle=fill;   c.fill(); }
+  if(stroke){ c.strokeStyle=stroke; c.lineWidth=lw; c.stroke(); }
+}
+
+function arr(c,x1,y1,x2,y2,col,lw=1.5,dash=[]){
+  const a=Math.atan2(y2-y1,x2-x1);
+  c.save(); c.strokeStyle=col; c.lineWidth=lw; c.setLineDash(dash);
+  c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle=col;
+  c.beginPath(); c.moveTo(x2,y2);
+  c.lineTo(x2-11*Math.cos(a-.38),y2-11*Math.sin(a-.38));
+  c.lineTo(x2-11*Math.cos(a+.38),y2-11*Math.sin(a+.38));
+  c.closePath(); c.fill(); c.restore();
+}
+
+function blob(c,x,y,rx,ry,rot,r,g,b,a){
+  c.save(); c.translate(x,y); c.rotate(rot);
+  c.scale(rx/Math.max(rx,ry), ry/Math.max(rx,ry));
+  const R=Math.max(rx,ry);
+  const g2=c.createRadialGradient(0,0,0,0,0,R);
+  g2.addColorStop(0,`rgba(${r},${g},${b},${a})`);
+  g2.addColorStop(.55,`rgba(${r},${g},${b},${a*.45})`);
+  g2.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  c.beginPath(); c.arc(0,0,R,0,Math.PI*2);
+  c.fillStyle=g2; c.fill(); c.restore();
+}
+
+// seeded random
+function sr(i,s=17){ return(( Math.sin(i*s+s)*43758.5453)%1+1)%1; }
+
+// hex → "r,g,b"
+function rgb(h){
+  return`${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`;
+}
+
+// ═══════════════════════════════════════════
+//  §01  TRIANGULATION
+// ═══════════════════════════════════════════
+(function(){
+  const c=cx('cTriang'); if(!c) return;
+  const W=980,H=230;
+  c.fillStyle='#0a0b10'; c.fillRect(0,0,W,H);
+
+  // Draw simple "room" in background
+  c.strokeStyle='rgba(255,255,255,0.04)'; c.lineWidth=1;
+  // floor lines
+  for(let i=0;i<10;i++){
+    const t=i/9;
+    c.beginPath(); c.moveTo(100+t*780,170); c.lineTo(200+t*580,H-5); c.stroke();
+  }
+  c.beginPath(); c.moveTo(100,170); c.lineTo(880,170); c.stroke();
+
+  const pt  = {x:490, y:72};  // the 3D point
+  const cam1= {x:90,  y:175};
+  const cam2= {x:885, y:180};
+
+  // Rays (dashed)
+  c.save(); c.setLineDash([5,6]); c.lineWidth=1.5;
+  c.strokeStyle='rgba(37,196,232,0.5)';
+  c.beginPath(); c.moveTo(cam1.x+24,cam1.y-10); c.lineTo(pt.x,pt.y+10); c.stroke();
+  c.strokeStyle='rgba(37,196,232,0.45)';
+  c.beginPath(); c.moveTo(cam2.x-24,cam2.y-10); c.lineTo(pt.x,pt.y+10); c.stroke();
+  c.setLineDash([]); c.restore();
+
+  // Ray labels
+  c.fillStyle='rgba(37,196,232,0.6)'; c.font='600 10px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('ray from camera 1', 255, 100);
+  c.fillText('ray from camera 2', 730, 100);
+
+  // 3D Point
+  c.beginPath(); c.arc(pt.x,pt.y+12,9,0,Math.PI*2);
+  c.fillStyle='#e8a825'; c.fill();
+  c.strokeStyle='#fff'; c.lineWidth=2; c.stroke();
+  c.fillStyle='rgba(232,168,37,0.9)'; c.font='bold 11px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('3D Point  (intersection)', pt.x, pt.y-6);
+
+  // Photo "sensor" planes
+  const drawCam=(x,y,lbl)=>{
+    rr(c,x-26,y-16,52,32,6,'rgba(232,168,37,0.1)','rgba(232,168,37,0.5)');
+    c.fillStyle='rgba(232,168,37,0.7)'; c.font='14px sans-serif'; c.textAlign='center';
+    c.fillText('📷',x,y+6);
+    rr(c,x-28,y+20,56,40,4,'rgba(37,196,232,0.08)','rgba(37,196,232,0.35)');
+    // projected dot on sensor
+    c.beginPath(); c.arc(x+(lbl==='Camera 1'?8:-8),y+40,5,0,Math.PI*2);
+    c.fillStyle='#e8a825'; c.fill();
+    c.fillStyle='rgba(255,255,255,0.35)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(lbl,x,y+72);
+    c.fillStyle='rgba(232,168,37,0.5)'; c.font='8px IBM Plex Mono';
+    c.fillText('point in photo',x,y+84);
+  };
+  drawCam(cam1.x,cam1.y,'Camera 1');
+  drawCam(cam2.x,cam2.y,'Camera 2');
+
+  // "same physical corner" callout
+  c.strokeStyle='rgba(107,207,127,0.4)'; c.lineWidth=1; c.setLineDash([3,5]);
+  c.beginPath(); c.moveTo(cam1.x+8,cam1.y+40); c.lineTo(cam2.x-8,cam2.y+40); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='rgba(107,207,127,0.6)'; c.font='600 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('same physical point observed in both photos', W/2, H-5);
+})();
+
+
+// ═══════════════════════════════════════════
+//  §02  STEP CANVASES
+// ═══════════════════════════════════════════
+const stepLabels = [
+  'SIFT detects thousands of distinctive keypoints on every image — scale/rotation invariant',
+  'Comparing 128-dim descriptors across image pairs to find the same points',
+  'RANSAC fits the fundamental matrix F, rejecting geometrically inconsistent matches',
+  'Cameras registered one-by-one using PnP; each new camera triangulates more 3D points',
+  'Joint optimisation of all camera poses + 3D points to minimise reprojection error',
+  'Output: calibrated cameras + sparse 3D point cloud — ready to seed 3DGS Gaussians',
+];
+
+function drawStep(step){
+  const c=cx('cStep'); if(!c) return;
+  const W=340,H=380;
+  c.fillStyle='#0a0b10'; c.fillRect(0,0,W,H);
+  $('stepLabel').textContent = stepLabels[step];
+  const CX=W/2, CY=H/2;
+
+  // ── 1: SIFT features ──
+  if(step===0){
+    // Photo outline
+    rr(c,20,24,300,270,8,'rgba(37,196,232,0.05)','rgba(37,196,232,0.25)');
+    // rough scene blocks
+    rr(c,30,34,300,90,4,'rgba(100,140,200,0.12)');  // sky
+    rr(c,30,124,120,170,4,'rgba(60,90,60,0.15)');   // tree
+    rr(c,150,90,170,210,4,'rgba(150,120,90,0.12)'); // building
+    rr(c,30,260,300,34,4,'rgba(80,70,60,0.2)');     // ground
+
+    // Keypoints (circles + crosses)
+    const kpts=[
+      [55,55],[110,48],[170,62],[230,50],[295,60],
+      [75,140],[130,130],[200,145],[270,138],[310,150],
+      [52,185],[160,200],[250,190],[320,180],[90,260],
+      [200,270],[300,265],[145,310],[260,320],[80,340],
+    ];
+    kpts.forEach(([kx,ky],i)=>{
+      const s=sr(i)*4+3;
+      c.beginPath(); c.arc(kx,ky,s,0,Math.PI*2);
+      c.fillStyle=`rgba(232,168,37,${.6+sr(i+30)*.3})`; c.fill();
+      c.strokeStyle='rgba(232,168,37,0.3)'; c.lineWidth=1;
+      c.beginPath(); c.arc(kx,ky,s+5,0,Math.PI*2); c.stroke();
+    });
+    c.fillStyle='rgba(232,168,37,0.6)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('20 shown · 10,000–50,000 in practice', CX, 318);
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='9px IBM Plex Mono';
+    c.fillText('Each has a 128-dim descriptor', CX, 334);
+
+  // ── 2: MATCHING ──
+  } else if(step===1){
+    // Two mini images
+    rr(c,10,30,145,200,7,'rgba(37,196,232,0.07)','rgba(37,196,232,0.3)');
+    rr(c,185,30,145,200,7,'rgba(37,196,232,0.07)','rgba(37,196,232,0.3)');
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('Image A',82,24); c.fillText('Image B',258,24);
+
+    const matchPairs=[
+      [45,70,  215,68,  true ],
+      [80,110, 255,115, true ],
+      [120,150,295,148, true ],
+      [60,175, 225,180, true ],
+      [105,85, 270,90,  true ],
+      [50,140, 300,80,  false],
+      [130,70, 205,160, false],
+    ];
+    matchPairs.forEach(([x1,y1,x2,y2,good])=>{
+      const col=good?'rgba(107,207,127,':'rgba(232,79,53,';
+      c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2);
+      c.strokeStyle=col+'0.4)'; c.lineWidth=1; c.setLineDash([3,4]); c.stroke(); c.setLineDash([]);
+      [x1,x2].forEach((x,i)=>{
+        c.beginPath(); c.arc(x,i===0?y1:y2,5,0,Math.PI*2);
+        c.fillStyle=col+'0.85)'; c.fill();
+      });
+    });
+    c.fillStyle='rgba(107,207,127,0.7)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('● correct matches', CX, 258);
+    c.fillStyle='rgba(232,79,53,0.7)';
+    c.fillText('● wrong matches (outliers)', CX, 274);
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='9px IBM Plex Mono';
+    c.fillText('Matched by 128-dim descriptor distance', CX, 296);
+
+  // ── 3: RANSAC ──
+  } else if(step===2){
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('RANSAC — fitting the fundamental matrix', CX, 22);
+
+    rr(c,15,30,310,300,8,'rgba(107,207,127,0.04)','rgba(107,207,127,0.18)');
+
+    // Epipolar line
+    c.beginPath(); c.moveTo(30,60); c.lineTo(320,310);
+    c.strokeStyle='rgba(37,196,232,0.55)'; c.lineWidth=2; c.stroke();
+    c.fillStyle='rgba(37,196,232,0.5)'; c.font='9px IBM Plex Mono'; c.textAlign='left';
+    c.fillText('epipolar line (from F)',200,190);
+
+    const pts=[
+      {x:70, y:90,  in:true},{x:100,y:115,in:true},{x:145,y:150,in:true},
+      {x:190,y:193,in:true},{x:240,y:235,in:true},{x:280,y:265,in:true},
+      {x:80, y:200,in:false},{x:270,y:100,in:false},{x:130,y:300,in:false},
+      {x:60, y:250,in:false},
+    ];
+    pts.forEach(p=>{
+      if(!p.in){
+        // Error line to epipolar
+        const t=(p.x-30)/(320-30);
+        const ey=60+(310-60)*t;
+        c.beginPath(); c.moveTo(p.x,p.y); c.lineTo(p.x,ey);
+        c.strokeStyle='rgba(232,79,53,0.35)'; c.lineWidth=1; c.setLineDash([2,4]); c.stroke(); c.setLineDash([]);
+      }
+      c.beginPath(); c.arc(p.x,p.y,6,0,Math.PI*2);
+      c.fillStyle=p.in?'rgba(107,207,127,0.85)':'rgba(232,79,53,0.8)'; c.fill();
+    });
+    c.fillStyle='rgba(107,207,127,0.7)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('● inliers  (kept)', CX, 345);
+    c.fillStyle='rgba(232,79,53,0.7)';
+    c.fillText('● outliers (discarded)', CX, 360);
+
+  // ── 4: INCREMENTAL ──
+  } else if(step===3){
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('Incremental camera registration', CX, 22);
+
+    // Sparse points (object)
+    for(let i=0;i<60;i++){
+      const px=CX-30+sr(i)*90, py=CY-20+sr(i+60)*80;
+      c.beginPath(); c.arc(px,py,1.5,0,Math.PI*2);
+      c.fillStyle=`rgba(232,168,37,${.4+sr(i+120)*.4})`; c.fill();
+    }
+
+    const cams=[
+      {x:100,y:300,reg:true, lbl:'1'},{x:200,y:320,reg:true, lbl:'2'},
+      {x:60, y:220,reg:true, lbl:'3'},{x:275,y:220,reg:true, lbl:'4'},
+      {x:60, y:130,reg:false,lbl:'5'},{x:285,y:135,reg:false,lbl:'6'},
+    ];
+    cams.forEach(cam=>{
+      const col=cam.reg?'rgba(37,196,232,':'rgba(255,255,255,0.';
+      if(cam.reg){
+        c.beginPath(); c.moveTo(cam.x,cam.y-16); c.lineTo(CX+5,CY);
+        c.strokeStyle='rgba(37,196,232,0.08)'; c.lineWidth=1; c.stroke();
+      }
+      rr(c,cam.x-20,cam.y-14,40,28,5,
+        cam.reg?'rgba(37,196,232,0.1)':'rgba(255,255,255,0.04)',
+        cam.reg?'rgba(37,196,232,0.55)':'rgba(255,255,255,0.18)');
+      c.fillStyle=cam.reg?'rgba(37,196,232,0.8)':'rgba(255,255,255,0.2)';
+      c.font='10px sans-serif'; c.textAlign='center';
+      c.fillText('📷',cam.x,cam.y+4);
+      c.font='bold 8px IBM Plex Mono';
+      c.fillText(cam.lbl,cam.x,cam.y+20);
+    });
+    c.fillStyle='rgba(37,196,232,0.7)'; c.font='bold 9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('teal = registered cameras',CX,355);
+    c.fillStyle='rgba(255,255,255,0.2)';
+    c.fillText('grey = not yet registered',CX,370);
+
+  // ── 5: BUNDLE ADJUSTMENT ──
+  } else if(step===4){
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('Bundle adjustment: minimise reprojection error', CX, 22);
+
+    const cams=[{x:80,y:120},{x:170,y:80},{x:270,y:120}];
+    const pt={x:170,y:240};
+
+    cams.forEach((cam,i)=>{
+      // Ray
+      c.beginPath(); c.moveTo(cam.x,cam.y+16); c.lineTo(pt.x,pt.y);
+      c.strokeStyle='rgba(255,255,255,0.07)'; c.lineWidth=1; c.setLineDash([3,5]); c.stroke(); c.setLineDash([]);
+
+      // Camera
+      rr(c,cam.x-20,cam.y-14,40,28,5,'rgba(232,168,37,0.1)','rgba(232,168,37,0.5)');
+      c.fillStyle='rgba(232,168,37,0.8)'; c.font='11px sans-serif'; c.textAlign='center';
+      c.fillText('📷',cam.x,cam.y+5);
+
+      // Observed (blue)
+      const obs= [[90,140],[172,100],[262,140]][i];
+      c.beginPath(); c.arc(obs[0],obs[1],6,0,Math.PI*2);
+      c.fillStyle='rgba(37,196,232,0.9)'; c.fill();
+
+      // Projected (orange)
+      const prj= [[98,150],[160,112],[274,152]][i];
+      c.beginPath(); c.arc(prj[0],prj[1],6,0,Math.PI*2);
+      c.fillStyle='rgba(232,168,37,0.9)'; c.fill();
+
+      // Error line
+      c.beginPath(); c.moveTo(obs[0],obs[1]); c.lineTo(prj[0],prj[1]);
+      c.strokeStyle='rgba(232,79,53,0.9)'; c.lineWidth=2; c.stroke();
+    });
+
+    // 3D point
+    c.beginPath(); c.arc(pt.x,pt.y,9,0,Math.PI*2);
+    c.fillStyle='#e8a825'; c.fill(); c.strokeStyle='#fff'; c.lineWidth=2; c.stroke();
+    c.fillStyle='rgba(232,168,37,0.7)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('3D point P',pt.x,pt.y+22);
+
+    c.fillStyle='rgba(37,196,232,0.8)'; c.font='bold 9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('● observed in photo',CX,310);
+    c.fillStyle='rgba(232,168,37,0.8)';
+    c.fillText('● projected from 3D estimate',CX,325);
+    c.fillStyle='rgba(232,79,53,0.7)';
+    c.fillText('── reprojection error (minimise this)',CX,340);
+
+  // ── 6: OUTPUT ──
+  } else if(step===5){
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('Sparse point cloud + calibrated cameras', CX, 22);
+
+    // Point cloud
+    for(let i=0;i<250;i++){
+      const px=CX-20+(sr(i)-0.5)*170, py=190+(sr(i+50)-0.5)*130;
+      c.beginPath(); c.arc(px,py,1.5,0,Math.PI*2);
+      const br=Math.round(sr(i+100)*120+100);
+      c.fillStyle=`rgba(${br+30},${br+50},${br},0.75)`; c.fill();
+    }
+
+    // Camera positions
+    const camPts=[[CX-80,330],[CX+70,335],[CX-120,270],[CX+110,260],[CX-60,200],[CX+80,195]];
+    camPts.forEach(([cx2,cy2],i)=>{
+      c.beginPath(); c.moveTo(cx2,cy2-14); c.lineTo(CX,200);
+      c.strokeStyle='rgba(232,168,37,0.12)'; c.lineWidth=1; c.stroke();
+      rr(c,cx2-18,cy2-14,36,26,4,'rgba(232,168,37,0.1)','rgba(232,168,37,0.5)');
+      c.fillStyle='rgba(232,168,37,0.7)'; c.font='11px sans-serif'; c.textAlign='center';
+      c.fillText('📷',cx2,cy2+4);
+    });
+    c.fillStyle='rgba(232,168,37,0.6)'; c.font='bold 9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('~200K 3D points · 6 calibrated cameras',CX,360);
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='9px IBM Plex Mono';
+    c.fillText('→ feeds directly into 3DGS initialisation',CX,375);
+  }
+}
+
+document.querySelectorAll('.step-item[data-step]').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.step-item[data-step]').forEach(e=>e.classList.remove('active'));
+    el.classList.add('active');
+    drawStep(+el.dataset.step);
+  });
+});
+drawStep(0);
+
+
+// ═══════════════════════════════════════════
+//  §03  BUNDLE ADJUSTMENT DIAGRAM
+// ═══════════════════════════════════════════
+(function(){
+  const c=cx('cBundle'); if(!c) return;
+  const W=980,H=250;
+  c.fillStyle='#0a0b10'; c.fillRect(0,0,W,H);
+
+  const cams=[{x:120,y:55},{x:490,y:45},{x:860,y:55}];
+  const pt={x:490,y:195};
+
+  // Draw floor hint
+  c.strokeStyle='rgba(255,255,255,0.03)'; c.lineWidth=1;
+  for(let i=0;i<12;i++){
+    const t=i/11;
+    c.beginPath(); c.moveTo(50+t*880,H-20); c.lineTo(50+t*880+30,H); c.stroke();
+  }
+
+  cams.forEach((cam,i)=>{
+    // Ray to 3D point
+    c.beginPath(); c.moveTo(cam.x,cam.y+18); c.lineTo(pt.x,pt.y);
+    c.strokeStyle='rgba(255,255,255,0.06)'; c.lineWidth=1; c.setLineDash([4,6]); c.stroke(); c.setLineDash([]);
+
+    // Camera icon
+    rr(c,cam.x-26,cam.y-16,52,32,6,'rgba(232,168,37,0.1)','rgba(232,168,37,0.5)');
+    c.fillStyle='rgba(232,168,37,0.8)'; c.font='14px sans-serif'; c.textAlign='center';
+    c.fillText('📷',cam.x,cam.y+7);
+
+    // Observed blue dot
+    const obs=[[130,100],[490,82],[855,100]][i];
+    c.beginPath(); c.arc(obs[0],obs[1],7,0,Math.PI*2);
+    c.fillStyle='rgba(37,196,232,0.95)'; c.fill();
+    c.strokeStyle='rgba(37,196,232,0.4)'; c.lineWidth=1;
+    c.beginPath(); c.arc(obs[0],obs[1],12,0,Math.PI*2); c.stroke();
+
+    // Projected orange dot
+    const prj=[[118,112],[506,96],[870,112]][i];
+    c.beginPath(); c.arc(prj[0],prj[1],7,0,Math.PI*2);
+    c.fillStyle='rgba(232,168,37,0.95)'; c.fill();
+
+    // Reprojection error line
+    c.beginPath(); c.moveTo(obs[0],obs[1]); c.lineTo(prj[0],prj[1]);
+    c.strokeStyle='rgba(232,79,53,0.9)'; c.lineWidth=2.5; c.stroke();
+  });
+
+  // 3D point
+  c.beginPath(); c.arc(pt.x,pt.y,10,0,Math.PI*2);
+  c.fillStyle='#e8a825'; c.fill(); c.strokeStyle='#fff'; c.lineWidth=2; c.stroke();
+  c.fillStyle='rgba(232,168,37,0.8)'; c.font='bold 10px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('3D Point P',pt.x,pt.y+22);
+
+  // Legend
+  const lx=30,ly=238;
+  c.beginPath(); c.arc(lx+6,ly,6,0,Math.PI*2); c.fillStyle='rgba(37,196,232,.95)'; c.fill();
+  c.fillStyle='rgba(37,196,232,.7)'; c.font='9px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('observed in photo',lx+16,ly+4);
+
+  c.beginPath(); c.arc(lx+170,ly,6,0,Math.PI*2); c.fillStyle='rgba(232,168,37,.95)'; c.fill();
+  c.fillStyle='rgba(232,168,37,.7)'; c.fillText('projected from 3D estimate',lx+180,ly+4);
+
+  c.strokeStyle='rgba(232,79,53,.9)'; c.lineWidth=2.5;
+  c.beginPath(); c.moveTo(lx+440,ly-5); c.lineTo(lx+460,ly+5); c.stroke();
+  c.fillStyle='rgba(232,79,53,.7)'; c.fillText('reprojection error  ← minimise this',lx+468,ly+4);
+})();
+
+
+// ═══════════════════════════════════════════
+//  §04  INIT DIAGRAM
+// ═══════════════════════════════════════════
+(function(){
+  const c=cx('cInit'); if(!c) return;
+  const W=980,H=210;
+  c.fillStyle='#0a0b10'; c.fillRect(0,0,W,H);
+
+  const panels=[
+    {x:10, w:290, col:'#e8a825', lbl:'COLMAP SPARSE POINTS'},
+    {x:345,w:290, col:'#e84f35', lbl:'INITIALISED GAUSSIANS'},
+    {x:695,w:280, col:'#6bcf7f', lbl:'TRAINED SCENE  (30K iters)'},
+  ];
+
+  panels.forEach(p=>{
+    rr(c,p.x,15,p.w,H-25,10,`rgba(${rgb(p.col)},0.05)`,`rgba(${rgb(p.col)},0.22)`);
+    c.fillStyle=`rgba(${rgb(p.col)},0.65)`; c.font='bold 8px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(p.lbl,p.x+p.w/2,32);
+  });
+
+  // 1 — sparse points
+  for(let i=0;i<120;i++){
+    const px=20+sr(i)*270, py=40+sr(i+100)*150;
+    c.beginPath(); c.arc(px,py,1.8,0,Math.PI*2);
+    const br=Math.round(sr(i+200)*80+130);
+    c.fillStyle=`rgba(${br+30},${br+50},${br},0.75)`; c.fill();
+  }
+
+  // 2 — init gaussians (sphere blobs, almost transparent)
+  for(let i=0;i<55;i++){
+    const px=355+sr(i,11)*270, py=40+sr(i+100,11)*150;
+    const r=sr(i+200,11)*14+7;
+    blob(c,px,py,r,r,0,220,100,80,0.22+sr(i+300,11)*.12);
+  }
+
+  // 3 — trained (shaped ellipsoids)
+  for(let i=0;i<80;i++){
+    const px=705+sr(i,13)*260, py=38+sr(i+100,13)*148;
+    const rx=sr(i+200,13)*22+8;
+    const ry=sr(i+300,13)*11+3;
+    const rot=sr(i+400,13)*Math.PI;
+    const cols=[[37,196,232],[232,168,37],[107,207,127],[167,139,250]];
+    const [r2,g2,b2]=cols[Math.floor(sr(i+500,13)*4)];
+    blob(c,px,py,rx,ry,rot,r2,g2,b2,0.55+sr(i+600,13)*.3);
+  }
+
+  // Arrows
+  arr(c,305,H/2,340,H/2,'rgba(232,168,37,0.6)',2);
+  c.fillStyle='rgba(232,168,37,0.45)'; c.font='8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('1 Gaussian',322,H/2-10);c.fillText('per point',322,H/2+4);
+
+  arr(c,640,H/2,690,H/2,'rgba(107,207,127,0.6)',2);
+  c.fillStyle='rgba(107,207,127,0.45)'; c.font='8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('train',665,H/2-10);c.fillText('30K iters',665,H/2+4);
+})();
+
+
+// ═══════════════════════════════════════════
+//  §05  TRAINING LOOP ANIMATION
+// ═══════════════════════════════════════════
+let loopStep=0, loopProg=0;
+const LOOP=[
+  {lbl:'Pick Training Camera',icon:'📷',sub:'Sample one photo · use COLMAP pose',col:'#e8a825'},
+  {lbl:'Rasterise Gaussians', icon:'⬡',  sub:'Project → depth sort → tile composite',col:'#25c4e8'},
+  {lbl:'Compute Loss',        icon:'⚡', sub:'0.8×L₁ + 0.2×(1−SSIM)',              col:'#e84f35'},
+  {lbl:'Backprop + Adam',     icon:'∇',  sub:'Gradients → update 59 params/Gaussian',col:'#a78bfa'},
+];
+const LOOP_CAP=[
+  'Picking a training camera — its COLMAP-recovered pose tells the rasteriser exactly where to render from',
+  'Rasterising: projecting all Gaussians to 2D, GPU depth-sorting, alpha-compositing tile by tile into a full image',
+  'Comparing rendered image vs ground-truth photo: L = 0.8 × L₁ + 0.2 × (1 − SSIM)',
+  'Gradients flow back through the differentiable rasteriser to every Gaussian — Adam updates all 59 parameters',
+];
+
+function drawLoop(){
+  const c=cx('loopCanvas'); if(!c) return;
+  const W=980,H=280;
+  c.fillStyle='#131520'; c.fillRect(0,0,W,H);
+
+  const N=LOOP.length;
+  const BW=160,BH=110;
+  const totalGap=W-N*BW;
+  const gap=totalGap/(N+1);
+
+  LOOP.forEach((s,i)=>{
+    const bx=gap+i*(BW+gap);
+    const by=(H-BH)/2;
+    const active=loopStep===i;
+    const past=i<loopStep;
+    const a=active?1:past?.65:.22;
+
+    rr(c,bx,by,BW,BH,12,
+      active?`rgba(${rgb(s.col)},0.18)`:`rgba(${rgb(s.col)},0.05)`,
+      `rgba(${rgb(s.col)},${active?.95:past?.5:.2})`,
+      active?2:1);
+
+    // Progress bar at bottom
+    if(active){
+      rr(c,bx,by+BH-7,BW*loopProg,7,3,`rgba(${rgb(s.col)},0.8)`);
+    } else if(past){
+      rr(c,bx,by+BH-7,BW,7,3,`rgba(${rgb(s.col)},0.45)`);
+    }
+
+    c.fillStyle=s.col; c.font=`${active?24:19}px sans-serif`; c.textAlign='center';
+    c.fillText(s.icon,bx+BW/2,by+42);
+    c.fillStyle=`rgba(255,255,255,${a})`;
+    c.font=`600 ${active?11:10}px IBM Plex Mono`;
+    c.fillText(s.lbl,bx+BW/2,by+62);
+    c.fillStyle=`rgba(255,255,255,${a*.5})`;
+    c.font='8.5px IBM Plex Mono';
+    // wrap sub
+    const words=s.sub.split(' '); let line=''; const lines=[];
+    words.forEach(w=>{if((line+w).length>18){lines.push(line.trim());line='';}line+=w+' ';});
+    lines.push(line.trim());
+    lines.slice(0,2).forEach((l,li)=>c.fillText(l,bx+BW/2,by+76+li*12));
+
+    // Connector arrow
+    if(i<N-1){
+      const ax=bx+BW+4, ay=by+BH/2;
+      const prog=active?loopProg:past?1:0;
+      if(prog>0){
+        const ex=ax+gap*prog-10;
+        c.beginPath(); c.moveTo(ax,ay); c.lineTo(ex,ay);
+        c.strokeStyle=`rgba(${rgb(s.col)},0.55)`; c.lineWidth=2; c.stroke();
+        if(prog>.82){
+          c.fillStyle=`rgba(${rgb(LOOP[i+1].col)},0.6)`;
+          c.beginPath(); c.moveTo(ex+2,ay); c.lineTo(ex-6,ay-6); c.lineTo(ex-6,ay+6); c.closePath(); c.fill();
+        }
+      }
+    }
+  });
+
+  // Loop-back arc
+  const lastBx=gap+(N-1)*(BW+gap)+BW;
+  const firstBx=gap;
+  const loopY=(H-BH)/2+BH;
+  c.beginPath();
+  c.moveTo(lastBx+2,loopY-55);
+  c.bezierCurveTo(lastBx+28,loopY-55,lastBx+28,loopY+44,W/2,loopY+44);
+  c.bezierCurveTo(firstBx-28,loopY+44,firstBx-28,loopY-55,firstBx-2,loopY-55);
+  c.strokeStyle='rgba(255,255,255,0.12)'; c.lineWidth=1.5; c.setLineDash([4,7]); c.stroke(); c.setLineDash([]);
+  c.fillStyle='rgba(255,255,255,0.18)'; c.font='600 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('× 30,000 iterations',W/2,loopY+58);
+  $('loopCap').textContent=LOOP_CAP[loopStep];
+}
+
+(function tickLoop(){
+  loopProg+=0.011;
+  if(loopProg>=1){ loopProg=0; loopStep=(loopStep+1)%LOOP.length; }
+  drawLoop();
+  requestAnimationFrame(tickLoop);
+})();
+
+
+// ═══════════════════════════════════════════
+//  §06  LOSS CANVAS
+// ═══════════════════════════════════════════
+function makeLoss(){
+  const pts=[];
+  for(let i=0;i<=300;i++){
+    const t=i/300, iter=t*30000;
+    let L=0.56*Math.exp(-iter/2800)+0.038;
+    L+=0.006*Math.sin(iter/700)*Math.exp(-iter/7000);
+    // densification spikes in 3K–15K
+    if(iter>2500&&iter<15500){
+      const phase=(iter-2500)/13000;
+      L+=0.018*Math.exp(-((iter%3000-120)/300)**2)*(1-phase);
+    }
+    pts.push({iter, L});
+  }
+  return pts;
+}
+const lossData=makeLoss();
+let hoverIter=null;
+
+function drawLossChart(){
+  const c=cx('lossCanvas'); if(!c) return;
+  const W=980,H=280;
+  c.fillStyle='#131520'; c.fillRect(0,0,W,H);
+
+  const pad={l:52,r:20,t:22,b:38};
+  const gw=W-pad.l-pad.r, gh=H-pad.t-pad.b;
+  const minL=0.03, maxL=0.60;
+
+  // Phase bands
+  [[0,.1,'rgba(232,79,53,0.07)','0–3K'  ],
+   [.1,.5,'rgba(232,168,37,0.05)','3K–15K'],
+   [.5, 1,'rgba(107,207,127,0.05)','15K–30K']].forEach(([t0,t1,col,lbl])=>{
+    const x0=pad.l+gw*t0, x1=pad.l+gw*t1;
+    rr(c,x0,pad.t,x1-x0,gh,0,col);
+    c.fillStyle=col.replace('.07','0.45').replace('.05','0.38');
+    c.font='8px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(lbl,(x0+x1)/2,pad.t+13);
+  });
+
+  // Grid
+  [.1,.2,.3,.4,.5].forEach(v=>{
+    const y=pad.t+gh*(1-(v-minL)/(maxL-minL));
+    c.beginPath(); c.moveTo(pad.l,y); c.lineTo(W-pad.r,y);
+    c.strokeStyle='rgba(255,255,255,0.04)'; c.lineWidth=1; c.stroke();
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='9px IBM Plex Mono'; c.textAlign='right';
+    c.fillText(v.toFixed(1),pad.l-5,y+3);
+  });
+  [0,5000,10000,15000,20000,25000,30000].forEach(v=>{
+    const x=pad.l+gw*(v/30000);
+    c.beginPath(); c.moveTo(x,pad.t); c.lineTo(x,pad.t+gh);
+    c.strokeStyle='rgba(255,255,255,0.04)'; c.lineWidth=1; c.stroke();
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(v===0?'0':v/1000+'K',x,H-pad.b+14);
+  });
+
+  // Area fill
+  c.beginPath(); c.moveTo(pad.l,pad.t+gh);
+  lossData.forEach(p=>{
+    const x=pad.l+gw*(p.iter/30000);
+    const y=Math.max(pad.t, pad.t+gh*(1-(p.L-minL)/(maxL-minL)));
+    c.lineTo(x,y);
+  });
+  c.lineTo(W-pad.r,pad.t+gh); c.closePath();
+  const grd=c.createLinearGradient(0,pad.t,0,pad.t+gh);
+  grd.addColorStop(0,'rgba(37,196,232,0.28)');
+  grd.addColorStop(1,'rgba(37,196,232,0.02)');
+  c.fillStyle=grd; c.fill();
+
+  // Line
+  c.beginPath();
+  lossData.forEach((p,i)=>{
+    const x=pad.l+gw*(p.iter/30000);
+    const y=Math.max(pad.t+1,pad.t+gh*(1-(p.L-minL)/(maxL-minL)));
+    if(i===0)c.moveTo(x,y); else c.lineTo(x,y);
+  });
+  c.strokeStyle='rgba(37,196,232,0.95)'; c.lineWidth=2.2; c.stroke();
+
+  // Axes
+  c.fillStyle='rgba(255,255,255,0.25)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('Training Iterations',W/2,H-5);
+  c.save(); c.translate(11,H/2); c.rotate(-Math.PI/2);
+  c.fillText('Loss',0,0); c.restore();
+
+  // Hover
+  if(hoverIter!==null){
+    const px=pad.l+gw*(hoverIter/30000);
+    const near=lossData.reduce((b,p)=>Math.abs(p.iter-hoverIter)<Math.abs(b.iter-hoverIter)?p:b);
+    const py=Math.max(pad.t+4,pad.t+gh*(1-(near.L-minL)/(maxL-minL)));
+
+    c.beginPath(); c.moveTo(px,pad.t); c.lineTo(px,pad.t+gh);
+    c.strokeStyle='rgba(255,255,255,0.18)'; c.lineWidth=1; c.setLineDash([3,5]); c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.arc(px,py,6,0,Math.PI*2); c.fillStyle='#25c4e8'; c.fill();
+    rr(c,px-58,py-34,116,26,5,'rgba(10,11,16,0.95)','rgba(37,196,232,0.55)');
+    c.fillStyle='rgba(37,196,232,0.95)'; c.font='bold 9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(`iter ${Math.round(near.iter).toLocaleString()}   loss ${near.L.toFixed(4)}`,px,py-17);
+  }
+}
+drawLossChart();
+
+$('lossCanvas').addEventListener('mousemove',e=>{
+  const r=e.target.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(e.target.width/r.width);
+  hoverIter=Math.max(0,Math.min(30000,(x-52)/(980-52-20)*30000));
+  drawLossChart();
+});
+$('lossCanvas').addEventListener('mouseleave',()=>{ hoverIter=null; drawLossChart(); });
+
+
+// ═══════════════════════════════════════════
+//  PSNR INTERACTIVE
+// ═══════════════════════════════════════════
+function drawPsnr(){
+  const c=cx('psnrCanvas'); if(!c) return;
+  const W=380,H=190;
+  c.fillStyle='#0a0b10'; c.fillRect(0,0,W,H);
+
+  const cx2=+$('complexity').value;
+  const iq=+$('initQ').value;
+  const cLabels=['Very simple','Simple','Medium','Complex','Very complex'];
+  const iLabels=['Poor','Fair','Good','Very good','Excellent'];
+  $('vComplex').textContent=cLabels[cx2-1];
+  $('vInitQ').textContent=iLabels[iq-1];
+
+  const finalPSNR=22+iq*1.4+(6-cx2)*1.6;
+
+  const pad={l:40,r:14,t:18,b:30};
+  const gw=W-pad.l-pad.r, gh=H-pad.t-pad.b;
+  const pMin=21, pMax=37;
+
+  [24,27,30,33,36].forEach(v=>{
+    const y=pad.t+gh*(1-(v-pMin)/(pMax-pMin));
+    c.beginPath(); c.moveTo(pad.l,y); c.lineTo(W-pad.r,y);
+    c.strokeStyle='rgba(255,255,255,0.05)'; c.lineWidth=1; c.stroke();
+    c.fillStyle='rgba(255,255,255,0.2)'; c.font='8px IBM Plex Mono'; c.textAlign='right';
+    c.fillText(v,pad.l-4,y+3);
+  });
+
+  const pts2=[];
+  for(let i=0;i<=60;i++){
+    const t=i/60;
+    const p=pMin+(finalPSNR-pMin)*(1-Math.exp(-t*4.5*(iq/3)));
+    pts2.push({t,p:Math.min(p,finalPSNR+.3)});
+  }
+  c.beginPath();
+  pts2.forEach((pt,i)=>{
+    const x=pad.l+gw*pt.t;
+    const y=pad.t+gh*(1-(pt.p-pMin)/(pMax-pMin));
+    if(i===0)c.moveTo(x,y); else c.lineTo(x,y);
+  });
+  c.strokeStyle='rgba(107,207,127,0.85)'; c.lineWidth=2.2; c.stroke();
+
+  c.fillStyle='rgba(107,207,127,0.7)'; c.font='bold 9px IBM Plex Mono'; c.textAlign='right';
+  c.fillText(`Final PSNR ≈ ${finalPSNR.toFixed(1)} dB`,W-pad.r,pad.t+14);
+  c.fillStyle='rgba(255,255,255,0.2)'; c.font='8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('Training progress →',W/2,H-5);
+  c.save(); c.translate(11,H/2); c.rotate(-Math.PI/2);
+  c.fillText('PSNR (dB)',0,0); c.restore();
+}
+drawPsnr();
+['complexity','initQ'].forEach(id=>$(id).addEventListener('input',drawPsnr));
+
+
+// ═══════════════════════════════════════════
+//  §07  DENSIFICATION
+// ═══════════════════════════════════════════
+(function(){
+  const c=cx('cDens'); if(!c) return;
+  const W=980,H=260;
+  c.fillStyle='#0a0b10'; c.fillRect(0,0,W,H);
+
+  const sections=[
+    {cx:163, col:'#25c4e8', title:'CLONE',
+     desc:'Small blob · high gradient',
+     before:()=>{
+       blob(c,163,125,28,28,0,37,196,232,0.55);
+       // gradient arrow above
+       arr(c,163,82,163,96,'rgba(37,196,232,0.6)',2);
+       c.fillStyle='rgba(37,196,232,0.5)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+       c.fillText('∇ large',163,78);
+     },
+     after:()=>{
+       blob(c,136,125,22,22,0,37,196,232,0.55);
+       blob(c,192,125,22,22,0,37,196,232,0.55);
+       c.fillStyle='rgba(37,196,232,0.4)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+       c.fillText('two blobs, offset',163,168);
+     }
+    },
+    {cx:490, col:'#e8a825', title:'SPLIT',
+     desc:'Large blob · high gradient',
+     before:()=>{
+       blob(c,490,125,58,26,0,232,168,37,0.55);
+       arr(c,490,82,490,96,'rgba(232,168,37,0.6)',2);
+       c.fillStyle='rgba(232,168,37,0.5)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+       c.fillText('∇ large',490,78);
+     },
+     after:()=>{
+       blob(c,460,126,36,16,-.25,232,168,37,0.52);
+       blob(c,522,126,36,16,.25, 232,168,37,0.52);
+       c.fillStyle='rgba(232,168,37,0.4)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+       c.fillText('two children, scale ÷ 1.6',490,168);
+     }
+    },
+    {cx:818, col:'#e84f35', title:'PRUNE',
+     desc:'Opacity near zero',
+     before:()=>{
+       blob(c,818,125,34,20,.3,232,79,53,0.12);
+       c.fillStyle='rgba(232,79,53,0.45)'; c.font='9px IBM Plex Mono'; c.textAlign='center';
+       c.fillText('α ≈ 0.003',818,168);
+     },
+     after:()=>{
+       c.fillStyle='rgba(255,255,255,0.12)'; c.font='500 11px IBM Plex Mono'; c.textAlign='center';
+       c.fillText('(deleted)',818,132);
+     }
+    },
+  ];
+
+  sections.forEach(s=>{
+    rr(c,s.cx-155,18,310,H-28,10,`rgba(${rgb(s.col)},0.04)`,`rgba(${rgb(s.col)},0.18)`);
+
+    // before / after columns
+    c.fillStyle=`rgba(${rgb(s.col)},0.45)`; c.font='bold 9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText('BEFORE',s.cx-70,42);
+    c.fillText('AFTER', s.cx+70,42);
+
+    // divider line
+    c.beginPath(); c.moveTo(s.cx,50); c.lineTo(s.cx,210);
+    c.strokeStyle=`rgba(${rgb(s.col)},0.18)`; c.lineWidth=1; c.setLineDash([3,5]); c.stroke(); c.setLineDash([]);
+
+    // arrow in middle
+    arr(c,s.cx-14,125,s.cx+14,125,`rgba(${rgb(s.col)},0.65)`,1.8);
+
+    // Draw before (left)
+    c.save(); c.translate(-70,0); s.before(); c.restore();
+    // Draw after (right)
+    c.save(); c.translate(70,0); s.after(); c.restore();
+
+    c.fillStyle=s.col; c.font='bold 12px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(s.title,s.cx,H-20);
+    c.fillStyle=`rgba(${rgb(s.col)},0.5)`; c.font='9px IBM Plex Mono';
+    c.fillText(s.desc,s.cx,H-6);
+  });
+
+  // Section dividers
+  [327,653].forEach(x=>{
+    c.beginPath(); c.moveTo(x,24); c.lineTo(x,H-20);
+    c.strokeStyle='rgba(255,255,255,0.06)'; c.lineWidth=1; c.setLineDash([4,8]); c.stroke(); c.setLineDash([]);
+  });
+})();
+</script>
+</body>
+</html>

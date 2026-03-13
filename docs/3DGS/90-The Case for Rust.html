@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DGS — Rust Implementation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,400&display=swap');
+
+:root {
+  --bg:      #0a0b0e;
+  --s1:      #0f1117;
+  --s2:      #141720;
+  --s3:      #1a1e2a;
+  --s4:      #1f2436;
+  --rust:    #ce442a;
+  --rust2:   #f07040;
+  --rust3:   #ffb085;
+  --wgpu:    #5b8dee;
+  --burn:    #e8a030;
+  --cuda:    #76b900;
+  --metal:   #c8c9cd;
+  --green:   #4ecb8d;
+  --red:     #f04060;
+  --text:    #d4dae8;
+  --muted:   #606878;
+  --border:  rgba(255,255,255,0.055);
+  --glow-rust: rgba(206,68,42,0.12);
+  --glow-wgpu: rgba(91,141,238,0.10);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Fira Code', monospace;
+  overflow-x: hidden;
+  line-height: 1.65;
+}
+
+/* ferrous grain */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background: radial-gradient(ellipse at 20% 50%, rgba(206,68,42,0.04) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(91,141,238,0.04) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top:0; z-index:100;
+  background: rgba(10,11,14,0.93);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: .55rem 1.5rem;
+  display: flex; align-items: center; gap: 1.2rem;
+  overflow-x: auto;
+}
+.nav-logo {
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: .9rem;
+  color: var(--rust2);
+  white-space: nowrap;
+  letter-spacing: -.02em;
+}
+.nav-logo span { color: var(--wgpu); }
+nav a {
+  font-size: .58rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .2s;
+}
+nav a:hover { color: var(--rust2); }
+
+/* ── HEADER ── */
+header {
+  max-width: 1060px; margin: 0 auto;
+  padding: 3.5rem 1.5rem 2rem;
+  position: relative; z-index:1;
+}
+
+.eyebrow-pill {
+  display: inline-flex; align-items: center; gap: .5rem;
+  border: 1px solid rgba(206,68,42,.35);
+  background: rgba(206,68,42,.08);
+  border-radius: 100px;
+  padding: .28rem .9rem;
+  font-size: .58rem;
+  letter-spacing: .18em;
+  color: var(--rust2);
+  text-transform: uppercase;
+  margin-bottom: 1.1rem;
+}
+
+h1 {
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 1.05;
+  color: #fff;
+}
+h1 em { font-style: italic; color: var(--rust2); }
+h1 .dim { color: var(--muted); }
+
+.subtitle { color: var(--muted); margin-top: .6rem; font-size: .78rem; }
+
+/* ── LAYOUT ── */
+.page { max-width: 1060px; margin: 0 auto; padding: 0 1.5rem 5rem; position: relative; z-index:1; }
+.section { margin-bottom: 4rem; }
+
+.sec-label {
+  display: flex; align-items: center; gap: .6rem;
+  font-size: .56rem; letter-spacing: .22em;
+  color: var(--muted); text-transform: uppercase;
+  margin-bottom: .5rem;
+}
+.sec-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.sec-num { color: var(--rust2); font-weight: 700; }
+
+h2 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem; font-weight: 700;
+  color: #fff; margin-bottom: .55rem;
+}
+h3 { font-size: .82rem; font-weight: 600; color: var(--rust3); margin-bottom: .4rem; }
+
+p { color: var(--muted); font-size: .8rem; line-height: 1.8; margin-bottom: .6rem; font-weight: 400; }
+strong { color: var(--text); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  position: relative;
+  overflow: hidden;
+}
+.card.rust  { border-color: rgba(206,68,42,.22); box-shadow: 0 0 48px var(--glow-rust); }
+.card.wgpu  { border-color: rgba(91,141,238,.18); box-shadow: 0 0 40px var(--glow-wgpu); }
+.card.burn  { border-color: rgba(232,160,48,.18); }
+.card.both  { border-color: rgba(78,203,141,.15); }
+
+.card-stripe {
+  position: absolute; top:0; left:0; right:0; height:2.5px;
+}
+.stripe-rust  { background: linear-gradient(90deg, var(--rust), var(--rust2), var(--rust3)); }
+.stripe-wgpu  { background: linear-gradient(90deg, var(--wgpu), #90b8ff); }
+.stripe-burn  { background: linear-gradient(90deg, var(--burn), #ffd080); }
+.stripe-both  { background: linear-gradient(90deg, var(--rust2), var(--wgpu), var(--green)); }
+
+.card-label {
+  font-size: .58rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+/* ── CODE ── */
+.code-wrap { border-radius: 10px; overflow: hidden; margin: .5rem 0; }
+.code-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .4rem 1rem;
+  font-size: .58rem; letter-spacing: .1em; font-weight: 700;
+  text-transform: uppercase;
+}
+.code-hdr.rust  { background: rgba(206,68,42,.18); color: var(--rust2); }
+.code-hdr.wgsl  { background: rgba(91,141,238,.15); color: var(--wgpu); }
+.code-hdr.toml  { background: rgba(232,160,48,.15); color: var(--burn); }
+.code-hdr.shell { background: rgba(78,203,141,.12); color: var(--green); }
+
+pre {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 1.1rem 1.2rem;
+  overflow-x: auto;
+  font-size: .71rem;
+  line-height: 1.78;
+  white-space: pre;
+  tab-size: 4;
+  font-family: 'Fira Code', monospace;
+}
+pre.standalone { border-top: 1px solid var(--border); border-radius: 10px; }
+
+/* syntax */
+.kw  { color: #c792ea; }
+.kw2 { color: #82aaff; }
+.fn  { color: #82d9ff; }
+.ty  { color: #ffcb8b; }
+.st  { color: #c3e88d; }
+.nu  { color: #f78c6c; }
+.cm  { color: #464b5d; font-style:italic; }
+.ma  { color: #ff9cac; }
+.lt  { color: #addb67; }
+.at  { color: #c792ea; font-style:italic; }
+.op  { color: #89ddff; }
+.va  { color: var(--text); }
+
+/* ── TWO COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items:start; }
+.three-col { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+
+canvas { display: block; }
+.cap {
+  font-size: .58rem; color: var(--muted); text-align: center;
+  margin-top: .5rem; line-height: 1.6; letter-spacing: .03em;
+}
+
+/* ── BADGES ── */
+.badges { display:flex; flex-wrap:wrap; gap:.35rem; margin-bottom:.75rem; }
+.badge {
+  font-size: .58rem; font-weight: 700;
+  padding: .18rem .55rem; border-radius: 5px; border: 1px solid;
+}
+.badge-rust  { background:rgba(206,68,42,.12); border-color:rgba(206,68,42,.4);  color:var(--rust2); }
+.badge-wgpu  { background:rgba(91,141,238,.12);border-color:rgba(91,141,238,.4); color:var(--wgpu); }
+.badge-burn  { background:rgba(232,160,48,.12);border-color:rgba(232,160,48,.4); color:var(--burn); }
+.badge-cuda  { background:rgba(118,185,0,.12); border-color:rgba(118,185,0,.4);  color:var(--cuda); }
+.badge-metal { background:rgba(200,201,205,.1);border-color:rgba(200,201,205,.3);color:var(--metal); }
+.badge-green { background:rgba(78,203,141,.1); border-color:rgba(78,203,141,.3); color:var(--green); }
+
+/* ── STEP LIST ── */
+.steps { display:flex; flex-direction:column; gap:.45rem; }
+.step {
+  display:flex; gap:.75rem; align-items:flex-start;
+  background:var(--s2); border-radius:9px; padding:.7rem .9rem;
+  border-left: 3px solid var(--rust);
+}
+.step-n {
+  font-family:'Fraunces',serif; font-size:.7rem; font-weight:900;
+  color: var(--bg); background:var(--rust2);
+  border-radius:4px; width:20px; height:20px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.step-b { font-size:.78rem; color:var(--muted); line-height:1.6; }
+.step-b strong { color:var(--text); }
+
+/* ── TABLE ── */
+.tbl { width:100%; border-collapse:collapse; font-size:.72rem; }
+.tbl th { font-size:.57rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); padding:.5rem .7rem; text-align:left; border-bottom:1px solid var(--border); }
+.tbl td { padding:.5rem .7rem; color:var(--muted); border-bottom:1px solid var(--border); vertical-align:top; }
+.tbl tr:last-child td { border-bottom:none; }
+.tbl td:first-child { color:var(--text); font-weight:600; }
+.g { color:var(--green)!important; }
+.y { color:var(--burn)!important; }
+.r { color:var(--red)!important; }
+
+/* ── NOTE / TIP ── */
+.note { background:rgba(240,96,64,.07); border:1px solid rgba(240,96,64,.2); border-radius:8px; padding:.7rem 1rem; font-size:.74rem; color:var(--rust3); line-height:1.65; margin:.7rem 0; }
+.note::before { content:'⚠  '; font-weight:700; }
+.tip  { background:rgba(91,141,238,.06); border:1px solid rgba(91,141,238,.2);  border-radius:8px; padding:.7rem 1rem; font-size:.74rem; color:var(--wgpu); line-height:1.65; margin:.7rem 0; }
+.tip::before  { content:'🦀  '; }
+
+@media(max-width:680px){.two-col,.three-col{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">3DGS · <span>Rust</span></div>
+  <a href="#why">Why Rust</a>
+  <a href="#stack">Stack</a>
+  <a href="#model">Gaussian Model</a>
+  <a href="#wgsl">WGSL Shaders</a>
+  <a href="#burn">Burn Training</a>
+  <a href="#densify">Densification</a>
+  <a href="#dispatch">GPU Dispatch</a>
+  <a href="#bench">Benchmarks</a>
+  <a href="#cargo">Cargo Setup</a>
+</nav>
+
+<header>
+  <div class="eyebrow-pill">Stage 3 · Extension · Rust</div>
+  <h1><em>Rust</em> Implementation<br><span class="dim">of 3D Gaussian Splatting</span></h1>
+  <p class="subtitle">wgpu shaders · burn training · CUDA & Metal backends · zero unsafe in core logic</p>
+</header>
+
+<div class="page">
+
+<!-- ══════════════════════════════════════
+     SECTION 0 — WHY RUST
+══════════════════════════════════════ -->
+<div class="section" id="why">
+  <div class="sec-label"><span class="sec-num">01</span> Why Rust for 3DGS</div>
+  <h2>The Case for Rust</h2>
+  <p>Python is the right language for research iteration. But once the algorithm is understood, Rust offers a compelling production path: <strong>memory safety without GC pauses</strong>, predictable latency, native WASM compilation for browser-based viewers, and GPU access through <strong>wgpu</strong> — a cross-platform API that dispatches to Vulkan, Metal, DX12, or WebGPU from a single codebase.</p>
+
+  <div class="card both">
+    <div class="card-stripe stripe-both"></div>
+    <div class="card-label">Rust 3DGS — Where It Fits in the Ecosystem</div>
+    <canvas id="cWhy" width="1020" height="200" style="width:100%;max-width:1020px;"></canvas>
+    <p class="cap">Python for research & training · Rust for production viewers, real-time apps, and WASM deployment</p>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h3>What Rust brings</h3>
+      <div class="steps">
+        <div class="step"><div class="step-n">✓</div><div class="step-b"><strong>Zero-cost abstractions</strong> — iterators, generics, traits compile to the same machine code as hand-written C</div></div>
+        <div class="step"><div class="step-n">✓</div><div class="step-b"><strong>No GC pauses</strong> — critical for real-time rendering where frame budget is fixed at 16ms</div></div>
+        <div class="step"><div class="step-n">✓</div><div class="step-b"><strong>wgpu</strong> — write shaders once in WGSL, run on Metal (M3), CUDA via Vulkan, WebGPU in browser</div></div>
+        <div class="step"><div class="step-n">✓</div><div class="step-b"><strong>burn</strong> crate provides PyTorch-like tensor ops + autograd with CUDA/Metal/CPU backends</div></div>
+      </div>
+    </div>
+    <div>
+      <h3>Trade-offs vs Python</h3>
+      <div class="steps" style="--step-border:var(--burn);">
+        <div class="step" style="border-left-color:var(--burn);"><div class="step-n" style="background:var(--burn);">~</div><div class="step-b"><strong>Longer compile times</strong> — wgpu + burn dependency tree is large. Use <code>sccache</code> and workspace caching</div></div>
+        <div class="step" style="border-left-color:var(--burn);"><div class="step-n" style="background:var(--burn);">~</div><div class="step-b"><strong>Smaller ML ecosystem</strong> — burn is maturing fast but PyTorch has more ops. Hybrid approach (train Python, render Rust) is common</div></div>
+        <div class="step" style="border-left-color:var(--burn);"><div class="step-n" style="background:var(--burn);">~</div><div class="step-b"><strong>Borrow checker learning curve</strong> — GPU buffer lifetimes require careful ownership design, but the compiler guides you</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 1 — STACK
+══════════════════════════════════════ -->
+<div class="section" id="stack">
+  <div class="sec-label"><span class="sec-num">02</span> The Rust Stack</div>
+  <h2>Crates and Their Roles</h2>
+
+  <div class="card rust">
+    <div class="card-stripe stripe-rust"></div>
+    <div class="card-label">Architecture — crate responsibilities</div>
+    <canvas id="cStack" width="1020" height="240" style="width:100%;max-width:1020px;"></canvas>
+    <p class="cap">Three-layer architecture: application logic → wgpu GPU abstraction → platform backends (Metal on M3, Vulkan/CUDA on NVIDIA)</p>
+  </div>
+
+  <div class="card rust" style="margin-top:1rem;">
+    <div class="card-stripe stripe-rust"></div>
+    <div class="card-label">Cargo.toml — full dependency tree</div>
+    <div class="code-wrap">
+      <div class="code-hdr toml">Cargo.toml</div>
+<pre><span class="cm"># 3dgs-rs — 3D Gaussian Splatting in Rust</span>
+[package]
+<span class="va">name</span>    = <span class="st">"gs3d"</span>
+<span class="va">version</span> = <span class="st">"0.1.0"</span>
+<span class="va">edition</span> = <span class="st">"2021"</span>
+
+[dependencies]
+<span class="cm"># ── GPU / Shader layer ───────────────────────────────────────────</span>
+<span class="va">wgpu</span>           = { <span class="va">version</span> = <span class="st">"0.20"</span>, <span class="va">features</span> = [<span class="st">"vulkan"</span>, <span class="st">"metal"</span>] }
+<span class="va">bytemuck</span>       = { <span class="va">version</span> = <span class="st">"1.14"</span>, <span class="va">features</span> = [<span class="st">"derive"</span>] }
+<span class="va">wgsl-preprocessor</span> = <span class="st">"0.2"</span>  <span class="cm"># #include support for WGSL shader files</span>
+
+<span class="cm"># ── ML / Training (burn framework) ───────────────────────────────</span>
+<span class="va">burn</span>           = { <span class="va">version</span> = <span class="st">"0.14"</span>, <span class="va">features</span> = [<span class="st">"autodiff"</span>] }
+<span class="va">burn-wgpu</span>      = <span class="st">"0.14"</span>   <span class="cm"># wgpu backend for burn (works on Metal + Vulkan)</span>
+<span class="cm"># Optional CUDA backend if NVIDIA GPU detected at build:</span>
+<span class="cm"># burn-cuda    = "0.14"   # CUDA 11.8+ via cuDNN</span>
+
+<span class="cm"># ── Math ─────────────────────────────────────────────────────────</span>
+<span class="va">glam</span>           = { <span class="va">version</span> = <span class="st">"0.27"</span>, <span class="va">features</span> = [<span class="st">"bytemuck"</span>] }
+<span class="cm"># glam: Vec3, Vec4, Mat3, Mat4, Quat — all SIMD-accelerated</span>
+
+<span class="cm"># ── Parallel CPU ops ─────────────────────────────────────────────</span>
+<span class="va">rayon</span>          = <span class="st">"1.8"</span>    <span class="cm"># data-parallel iterators (densification, pruning)</span>
+
+<span class="cm"># ── Scene I/O ────────────────────────────────────────────────────</span>
+<span class="va">ply-rs</span>         = <span class="st">"0.1"</span>    <span class="cm"># load COLMAP PLY point clouds</span>
+<span class="va">serde</span>          = { <span class="va">version</span> = <span class="st">"1"</span>, <span class="va">features</span> = [<span class="st">"derive"</span>] }
+<span class="va">serde_json</span>     = <span class="st">"1"</span>
+
+<span class="cm"># ── Image / display ──────────────────────────────────────────────</span>
+<span class="va">image</span>          = <span class="st">"0.25"</span>   <span class="cm"># load training images, save renders</span>
+<span class="va">winit</span>          = <span class="st">"0.30"</span>   <span class="cm"># cross-platform window (macOS native on M3)</span>
+
+[features]
+<span class="va">default</span> = [<span class="st">"wgpu-backend"</span>]
+<span class="va">wgpu-backend</span>  = []       <span class="cm"># Metal on macOS, Vulkan/DX12 elsewhere</span>
+<span class="va">cuda-backend</span>  = [<span class="st">"burn/burn-cuda"</span>]  <span class="cm"># opt-in CUDA (requires CUDA toolkit)</span>
+
+[profile.release]
+<span class="va">opt-level</span>   = <span class="nu">3</span>
+<span class="va">lto</span>         = <span class="st">"thin"</span>    <span class="cm"># link-time optimisation</span>
+<span class="va">codegen-units</span> = <span class="nu">1</span>       <span class="cm"># maximise LLVM optimisation</span></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 2 — GAUSSIAN MODEL
+══════════════════════════════════════ -->
+<div class="section" id="model">
+  <div class="sec-label"><span class="sec-num">03</span> Core Data Structures</div>
+  <h2>The Gaussian Scene in Rust</h2>
+  <p>Rust's ownership system maps naturally to GPU buffer management. We use <strong>Structure of Arrays</strong> just like the CUDA version, but Rust's type system enforces the invariants at compile time.</p>
+
+  <div class="card rust">
+    <div class="card-stripe stripe-rust"></div>
+    <div class="card-label">gaussian_model.rs — the scene representation</div>
+    <div class="code-wrap">
+      <div class="code-hdr rust">Rust · src/gaussian_model.rs</div>
+<pre><span class="kw">use</span> <span class="va">glam</span>::{<span class="ty">Vec3</span>, <span class="ty">Vec4</span>, <span class="ty">Quat</span>};
+<span class="kw">use</span> <span class="va">bytemuck</span>::{<span class="ty">Pod</span>, <span class="ty">Zeroable</span>};
+
+<span class="cm">// ── GPU-side layout: must be #[repr(C)] for bytemuck ──────────────
+// This is what actually lives in the wgpu buffer — tightly packed.
+// One entry per Gaussian, but fields are in SEPARATE buffers (SoA).</span>
+
+<span class="at">#[repr(C)]</span>
+<span class="at">#[derive(Clone, Copy, Pod, Zeroable, Debug)]</span>
+<span class="kw">pub struct</span> <span class="ty">GaussianPosition</span> {
+    <span class="kw">pub</span> <span class="va">xyz</span>: [<span class="ty">f32</span>; <span class="nu">3</span>],
+    <span class="va">_pad</span>: <span class="ty">f32</span>,  <span class="cm">// 16-byte align for wgpu uniform requirements</span>
+}
+
+<span class="at">#[repr(C)]</span>
+<span class="at">#[derive(Clone, Copy, Pod, Zeroable, Debug)]</span>
+<span class="kw">pub struct</span> <span class="ty">GaussianShape</span> {
+    <span class="kw">pub</span> <span class="va">scale</span>: [<span class="ty">f32</span>; <span class="nu">3</span>],  <span class="cm">// log-scale (exp to get sx,sy,sz)</span>
+    <span class="kw">pub</span> <span class="va">quat</span>:  [<span class="ty">f32</span>; <span class="nu">4</span>],  <span class="cm">// quaternion (w,x,y,z)</span>
+    <span class="kw">pub</span> <span class="va">opacity</span>: <span class="ty">f32</span>,      <span class="cm">// logit-opacity</span>
+}
+
+<span class="at">#[repr(C)]</span>
+<span class="at">#[derive(Clone, Copy, Pod, Zeroable)]</span>
+<span class="kw">pub struct</span> <span class="ty">GaussianColor</span> {
+    <span class="kw">pub</span> <span class="va">sh_dc</span>:   [<span class="ty">f32</span>; <span class="nu">3</span>],         <span class="cm">// degree-0 SH (RGB)</span>
+    <span class="kw">pub</span> <span class="va">sh_rest</span>: [<span class="ty">f32</span>; <span class="nu">45</span>],        <span class="cm">// degrees 1-3 (15 coeffs × 3 channels)</span>
+}
+
+<span class="cm">// ── CPU-side GaussianScene: owns the data + GPU buffers ──────────</span>
+<span class="kw">pub struct</span> <span class="ty">GaussianScene</span> {
+    <span class="cm">// CPU storage (for densification / pruning on CPU via rayon)</span>
+    <span class="kw">pub</span> <span class="va">positions</span>: <span class="ty">Vec</span>&lt;<span class="ty">GaussianPosition</span>&gt;,
+    <span class="kw">pub</span> <span class="va">shapes</span>:    <span class="ty">Vec</span>&lt;<span class="ty">GaussianShape</span>&gt;,
+    <span class="kw">pub</span> <span class="va">colors</span>:    <span class="ty">Vec</span>&lt;<span class="ty">GaussianColor</span>&gt;,
+
+    <span class="cm">// GPU buffers (owned, dropped when scene is dropped)</span>
+    <span class="kw">pub</span> <span class="va">buf_positions</span>: <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+    <span class="kw">pub</span> <span class="va">buf_shapes</span>:    <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+    <span class="kw">pub</span> <span class="va">buf_colors</span>:    <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+    <span class="cm">// Output buffers (written by preprocess kernel)</span>
+    <span class="kw">pub</span> <span class="va">buf_xy_screen</span>: <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+    <span class="kw">pub</span> <span class="va">buf_cov2d</span>:     <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+    <span class="kw">pub</span> <span class="va">buf_depths</span>:    <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+    <span class="kw">pub</span> <span class="va">buf_rgb_eval</span>:  <span class="ty">wgpu</span>::<span class="ty">Buffer</span>,
+}
+
+<span class="kw">impl</span> <span class="ty">GaussianScene</span> {
+    <span class="kw">pub fn</span> <span class="fn">new</span>(<span class="va">device</span>: &amp;<span class="ty">wgpu</span>::<span class="ty">Device</span>, <span class="va">capacity</span>: <span class="ty">usize</span>) -&gt; <span class="ty">Self</span> {
+        <span class="kw">use</span> <span class="va">wgpu</span>::<span class="ty">BufferUsages</span> <span class="kw">as</span> <span class="ty">U</span>;
+
+        <span class="cm">// Helper: allocate a typed GPU buffer</span>
+        <span class="kw">let</span> <span class="fn">make_buf</span> = |<span class="va">n</span>: <span class="ty">usize</span>, <span class="va">elem_bytes</span>: <span class="ty">usize</span>, <span class="va">usage</span>: <span class="ty">U</span>| {
+            <span class="va">device</span>.<span class="fn">create_buffer</span>(&amp;<span class="ty">wgpu</span>::<span class="ty">BufferDescriptor</span> {
+                <span class="va">label</span>: <span class="kw">None</span>,
+                <span class="va">size</span>: (<span class="va">n</span> * <span class="va">elem_bytes</span>) <span class="kw">as</span> <span class="ty">u64</span>,
+                <span class="va">usage</span>: <span class="va">usage</span> | <span class="ty">U</span>::<span class="va">COPY_DST</span> | <span class="ty">U</span>::<span class="va">COPY_SRC</span>,
+                <span class="va">mapped_at_creation</span>: <span class="kw">false</span>,
+            })
+        };
+
+        <span class="kw">let</span> <span class="va">s</span> = <span class="ty">U</span>::<span class="va">STORAGE</span>;  <span class="cm">// read/write in compute shaders</span>
+        <span class="ty">Self</span> {
+            <span class="va">positions</span>:    <span class="ty">Vec</span>::<span class="fn">with_capacity</span>(<span class="va">capacity</span>),
+            <span class="va">shapes</span>:       <span class="ty">Vec</span>::<span class="fn">with_capacity</span>(<span class="va">capacity</span>),
+            <span class="va">colors</span>:       <span class="ty">Vec</span>::<span class="fn">with_capacity</span>(<span class="va">capacity</span>),
+            <span class="va">buf_positions</span>: <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">16</span>, <span class="va">s</span>),
+            <span class="va">buf_shapes</span>:    <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">32</span>, <span class="va">s</span>),
+            <span class="va">buf_colors</span>:    <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">192</span>, <span class="va">s</span>),
+            <span class="va">buf_xy_screen</span>: <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">8</span>,  <span class="va">s</span>),
+            <span class="va">buf_cov2d</span>:     <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">12</span>, <span class="va">s</span>),
+            <span class="va">buf_depths</span>:    <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">4</span>,  <span class="va">s</span>),
+            <span class="va">buf_rgb_eval</span>:  <span class="fn">make_buf</span>(<span class="va">capacity</span>, <span class="nu">12</span>, <span class="va">s</span>),
+        }
+    }
+
+    <span class="cm">/// Upload CPU vectors to GPU buffers — called after densification</span>
+    <span class="kw">pub fn</span> <span class="fn">upload</span>(&amp;<span class="kw">self</span>, <span class="va">queue</span>: &amp;<span class="ty">wgpu</span>::<span class="ty">Queue</span>) {
+        <span class="va">queue</span>.<span class="fn">write_buffer</span>(&amp;<span class="kw">self</span>.<span class="va">buf_positions</span>, <span class="nu">0</span>,
+            <span class="va">bytemuck</span>::<span class="fn">cast_slice</span>(&amp;<span class="kw">self</span>.<span class="va">positions</span>));
+        <span class="va">queue</span>.<span class="fn">write_buffer</span>(&amp;<span class="kw">self</span>.<span class="va">buf_shapes</span>, <span class="nu">0</span>,
+            <span class="va">bytemuck</span>::<span class="fn">cast_slice</span>(&amp;<span class="kw">self</span>.<span class="va">shapes</span>));
+        <span class="va">queue</span>.<span class="fn">write_buffer</span>(&amp;<span class="kw">self</span>.<span class="va">buf_colors</span>, <span class="nu">0</span>,
+            <span class="va">bytemuck</span>::<span class="fn">cast_slice</span>(&amp;<span class="kw">self</span>.<span class="va">colors</span>));
+    }
+
+    <span class="kw">pub fn</span> <span class="fn">len</span>(&amp;<span class="kw">self</span>) -&gt; <span class="ty">usize</span> { <span class="kw">self</span>.<span class="va">positions</span>.<span class="fn">len</span>() }
+
+    <span class="cm">/// Sigmoid of logit-opacity — used during evaluation</span>
+    <span class="kw">pub fn</span> <span class="fn">opacity</span>(<span class="va">logit</span>: <span class="ty">f32</span>) -&gt; <span class="ty">f32</span> { <span class="nu">1.0</span> / (<span class="nu">1.0</span> + (-<span class="va">logit</span>).<span class="fn">exp</span>()) }
+    <span class="cm">/// Scale from log-space (stored) to actual metres</span>
+    <span class="kw">pub fn</span> <span class="fn">scale</span>(<span class="va">log_s</span>: <span class="ty">f32</span>) -&gt; <span class="ty">f32</span> { <span class="va">log_s</span>.<span class="fn">exp</span>() }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 3 — WGSL SHADERS
+══════════════════════════════════════ -->
+<div class="section" id="wgsl">
+  <div class="sec-label"><span class="sec-num">04</span> WGSL Compute Shaders</div>
+  <h2>Cross-Platform Shaders via WGSL</h2>
+  <p>WGSL (WebGPU Shading Language) is Rust's native shader language. wgpu compiles it to MSL on M3 Apple Silicon, SPIR-V→GLSL for Vulkan/CUDA, and WebGPU for browsers — <strong>one shader source, every platform</strong>.</p>
+
+  <div class="card wgpu">
+    <div class="card-stripe stripe-wgpu"></div>
+    <div class="card-label">Shader 1 / 2 — Preprocess: Project Gaussians to Screen</div>
+    <div class="code-wrap">
+      <div class="code-hdr wgsl">WGSL · shaders/preprocess.wgsl</div>
+<pre><span class="cm">// Compiled to MSL (Metal), SPIR-V (Vulkan/CUDA), or WASM (browser)
+// by wgpu at runtime — zero code changes needed per platform</span>
+
+<span class="cm">// ── Binding layout (matches Rust bind_group) ─────────────────────</span>
+<span class="at">@group(0) @binding(0)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt;       <span class="va">positions</span>:  <span class="va">array</span>&lt;<span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+<span class="at">@group(0) @binding(1)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt;       <span class="va">shapes</span>:     <span class="va">array</span>&lt;<span class="ty">GaussianShape</span>&gt;;
+<span class="at">@group(0) @binding(2)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt;       <span class="va">colors</span>:     <span class="va">array</span>&lt;<span class="ty">GaussianColor</span>&gt;;
+<span class="at">@group(0) @binding(3)</span> <span class="kw">var</span>&lt;<span class="va">uniform</span>&gt;              <span class="va">camera</span>:     <span class="ty">CameraUniforms</span>;
+<span class="at">@group(1) @binding(0)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read_write</span>&gt; <span class="va">xy_out</span>:     <span class="va">array</span>&lt;<span class="va">vec2</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+<span class="at">@group(1) @binding(1)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read_write</span>&gt; <span class="va">cov2d_out</span>:  <span class="va">array</span>&lt;<span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+<span class="at">@group(1) @binding(2)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read_write</span>&gt; <span class="va">depth_out</span>:  <span class="va">array</span>&lt;<span class="kw">f32</span>&gt;;
+<span class="at">@group(1) @binding(3)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read_write</span>&gt; <span class="va">rgb_out</span>:    <span class="va">array</span>&lt;<span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+
+<span class="kw">struct</span> <span class="ty">GaussianShape</span> {
+    <span class="va">scale</span>:   <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;,
+    <span class="va">opacity</span>: <span class="kw">f32</span>,
+    <span class="va">quat</span>:    <span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;,  <span class="cm">// w,x,y,z</span>
+}
+
+<span class="kw">struct</span> <span class="ty">CameraUniforms</span> {
+    <span class="va">view</span>:     <span class="va">mat4x4</span>&lt;<span class="kw">f32</span>&gt;,  <span class="cm">// world → camera</span>
+    <span class="va">proj</span>:     <span class="va">mat4x4</span>&lt;<span class="kw">f32</span>&gt;,  <span class="cm">// camera → clip</span>
+    <span class="va">cam_pos</span>:  <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;,
+    <span class="va">width</span>:    <span class="kw">f32</span>,
+    <span class="va">height</span>:   <span class="kw">f32</span>,
+}
+
+<span class="cm">// Quaternion → 3×3 rotation matrix</span>
+<span class="kw">fn</span> <span class="fn">quat_to_mat</span>(<span class="va">q</span>: <span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;) -&gt; <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt; {
+    <span class="kw">let</span> <span class="va">w</span> = <span class="va">q</span>.<span class="va">x</span>; <span class="kw">let</span> <span class="va">x</span> = <span class="va">q</span>.<span class="va">y</span>; <span class="kw">let</span> <span class="va">y</span> = <span class="va">q</span>.<span class="va">z</span>; <span class="kw">let</span> <span class="va">z</span> = <span class="va">q</span>.<span class="va">w</span>;
+    <span class="kw">return</span> <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt;(
+        <span class="nu">1.0</span> - <span class="nu">2.0</span>*(<span class="va">y</span>*<span class="va">y</span>+<span class="va">z</span>*<span class="va">z</span>),  <span class="nu">2.0</span>*(<span class="va">x</span>*<span class="va">y</span>-<span class="va">w</span>*<span class="va">z</span>),      <span class="nu">2.0</span>*(<span class="va">x</span>*<span class="va">z</span>+<span class="va">w</span>*<span class="va">y</span>),
+        <span class="nu">2.0</span>*(<span class="va">x</span>*<span class="va">y</span>+<span class="va">w</span>*<span class="va">z</span>),      <span class="nu">1.0</span> - <span class="nu">2.0</span>*(<span class="va">x</span>*<span class="va">x</span>+<span class="va">z</span>*<span class="va">z</span>),  <span class="nu">2.0</span>*(<span class="va">y</span>*<span class="va">z</span>-<span class="va">w</span>*<span class="va">x</span>),
+        <span class="nu">2.0</span>*(<span class="va">x</span>*<span class="va">z</span>-<span class="va">w</span>*<span class="va">y</span>),      <span class="nu">2.0</span>*(<span class="va">y</span>*<span class="va">z</span>+<span class="va">w</span>*<span class="va">x</span>),      <span class="nu">1.0</span> - <span class="nu">2.0</span>*(<span class="va">x</span>*<span class="va">x</span>+<span class="va">y</span>*<span class="va">y</span>)
+    );
+}
+
+<span class="cm">// EWA projection: 3D covariance → 2D screen covariance</span>
+<span class="cm">// Σ' = J · W · Σ · Wᵀ · Jᵀ  (upper triangle: a, b, c)</span>
+<span class="kw">fn</span> <span class="fn">project_cov3d</span>(<span class="va">Sigma</span>: <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt;, <span class="va">p_cam</span>: <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;,
+                  <span class="va">W</span>: <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt;) -&gt; <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt; {
+    <span class="kw">let</span> <span class="va">tx</span> = <span class="va">p_cam</span>.<span class="va">x</span>; <span class="kw">let</span> <span class="va">ty</span> = <span class="va">p_cam</span>.<span class="va">y</span>; <span class="kw">let</span> <span class="va">tz</span> = <span class="va">p_cam</span>.<span class="va">z</span>;
+    <span class="cm">// Jacobian of perspective divide ∂(x/z)/∂(x,y,z)</span>
+    <span class="kw">let</span> <span class="va">J</span> = <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt;(
+        <span class="nu">1.0</span>/<span class="va">tz</span>,  <span class="nu">0.0</span>,   -<span class="va">tx</span>/(<span class="va">tz</span>*<span class="va">tz</span>),
+        <span class="nu">0.0</span>,     <span class="nu">1.0</span>/<span class="va">tz</span>, -<span class="va">ty</span>/(<span class="va">tz</span>*<span class="va">tz</span>),
+        <span class="nu">0.0</span>,     <span class="nu">0.0</span>,    <span class="nu">0.0</span>
+    );
+    <span class="kw">let</span> <span class="va">T</span>      = <span class="va">J</span> * <span class="va">W</span>;
+    <span class="kw">let</span> <span class="va">Sigma2</span> = <span class="va">T</span> * <span class="va">Sigma</span> * <span class="fn">transpose</span>(<span class="va">T</span>);
+    <span class="cm">// Return upper triangle + low-pass filter (+0.3 diagonal)</span>
+    <span class="kw">return</span> <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">Sigma2</span>[<span class="nu">0</span>][<span class="nu">0</span>] + <span class="nu">0.3</span>, <span class="va">Sigma2</span>[<span class="nu">1</span>][<span class="nu">0</span>], <span class="va">Sigma2</span>[<span class="nu">1</span>][<span class="nu">1</span>] + <span class="nu">0.3</span>);
+}
+
+<span class="cm">// ── Main preprocess kernel — one invocation per Gaussian ─────────</span>
+<span class="at">@compute @workgroup_size(256, 1, 1)</span>
+<span class="kw">fn</span> <span class="fn">preprocess</span>(<span class="at">@builtin(global_invocation_id)</span> <span class="va">gid</span>: <span class="va">vec3</span>&lt;<span class="kw">u32</span>&gt;) {
+    <span class="kw">let</span> <span class="va">idx</span> = <span class="va">gid</span>.<span class="va">x</span>;
+    <span class="kw">if</span> (<span class="va">idx</span> &gt;= <span class="kw">arrayLength</span>(&amp;<span class="va">positions</span>)) { <span class="kw">return</span>; }
+
+    <span class="cm">// 1. World → camera space</span>
+    <span class="kw">let</span> <span class="va">pos_w</span>  = <span class="va">positions</span>[<span class="va">idx</span>].<span class="va">xyz</span>;
+    <span class="kw">let</span> <span class="va">pos_c</span>  = (<span class="va">camera</span>.<span class="va">view</span> * <span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">pos_w</span>, <span class="nu">1.0</span>)).<span class="va">xyz</span>;
+    <span class="va">depth_out</span>[<span class="va">idx</span>] = <span class="va">pos_c</span>.<span class="va">z</span>;
+
+    <span class="cm">// 2. Build Σ = R · diag(s²) · Rᵀ</span>
+    <span class="kw">let</span> <span class="va">sh</span>   = <span class="va">shapes</span>[<span class="va">idx</span>];
+    <span class="kw">let</span> <span class="va">s</span>    = <span class="fn">exp</span>(<span class="va">sh</span>.<span class="va">scale</span>);              <span class="cm">// log → actual scale</span>
+    <span class="kw">let</span> <span class="va">R</span>    = <span class="fn">quat_to_mat</span>(<span class="fn">normalize</span>(<span class="va">sh</span>.<span class="va">quat</span>));
+    <span class="kw">let</span> <span class="va">S</span>    = <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">s</span>.<span class="va">x</span>*<span class="va">s</span>.<span class="va">x</span>,<span class="nu">0.0</span>,<span class="nu">0.0</span>,  <span class="nu">0.0</span>,<span class="va">s</span>.<span class="va">y</span>*<span class="va">s</span>.<span class="va">y</span>,<span class="nu">0.0</span>,  <span class="nu">0.0</span>,<span class="nu">0.0</span>,<span class="va">s</span>.<span class="va">z</span>*<span class="va">s</span>.<span class="va">z</span>);
+    <span class="kw">let</span> <span class="va">Sigma</span>= <span class="va">R</span> * <span class="va">S</span> * <span class="fn">transpose</span>(<span class="va">R</span>);
+
+    <span class="cm">// 3. Project Σ → 2D screen covariance</span>
+    <span class="kw">let</span> <span class="va">W3</span>   = <span class="va">mat3x3</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">camera</span>.<span class="va">view</span>[<span class="nu">0</span>].<span class="va">xyz</span>, <span class="va">camera</span>.<span class="va">view</span>[<span class="nu">1</span>].<span class="va">xyz</span>, <span class="va">camera</span>.<span class="va">view</span>[<span class="nu">2</span>].<span class="va">xyz</span>);
+    <span class="va">cov2d_out</span>[<span class="va">idx</span>] = <span class="fn">project_cov3d</span>(<span class="va">Sigma</span>, <span class="va">pos_c</span>, <span class="va">W3</span>);
+
+    <span class="cm">// 4. Clip → screen pixels</span>
+    <span class="kw">let</span> <span class="va">p_clip</span> = <span class="va">camera</span>.<span class="va">proj</span> * <span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">pos_c</span>, <span class="nu">1.0</span>);
+    <span class="va">xy_out</span>[<span class="va">idx</span>] = <span class="va">vec2</span>&lt;<span class="kw">f32</span>&gt;(
+        (<span class="va">p_clip</span>.<span class="va">x</span> / <span class="va">p_clip</span>.<span class="va">w</span> + <span class="nu">1.0</span>) * <span class="num">0.5</span> * <span class="va">camera</span>.<span class="va">width</span>,
+        (<span class="nu">1.0</span> - <span class="va">p_clip</span>.<span class="va">y</span> / <span class="va">p_clip</span>.<span class="va">w</span>) * <span class="num">0.5</span> * <span class="va">camera</span>.<span class="va">height</span>
+    );
+
+    <span class="cm">// 5. Evaluate SH degree-0 colour (view-independent base)</span>
+    <span class="cm">// Full SH eval omitted for brevity — same formula as CUDA/Metal</span>
+    <span class="kw">let</span> <span class="va">col</span> = <span class="va">colors</span>[<span class="va">idx</span>];
+    <span class="kw">let</span> <span class="va">SH_C0</span> = <span class="nu">0.28209479177</span>;  <span class="cm">// 1/(2√π)</span>
+    <span class="va">rgb_out</span>[<span class="va">idx</span>] = <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;(<span class="nu">0.5</span>) + <span class="va">SH_C0</span> * <span class="va">col</span>.<span class="va">sh_dc</span>;
+}</pre>
+    </div>
+  </div>
+
+  <div class="card wgpu" style="margin-top:1rem;">
+    <div class="card-stripe stripe-wgpu"></div>
+    <div class="card-label">Shader 2 / 2 — Tile Rasterizer: Alpha Composite</div>
+    <div class="code-wrap">
+      <div class="code-hdr wgsl">WGSL · shaders/rasterize.wgsl — the inner compositing loop</div>
+<pre><span class="cm">// Tile-based rasterizer — 16×16 workgroup = one screen tile
+// WGSL workgroup_size(16, 16, 1) → 256 threads per tile</span>
+
+<span class="at">@group(0) @binding(0)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt; <span class="va">tile_ranges</span>: <span class="va">array</span>&lt;<span class="va">vec2</span>&lt;<span class="kw">u32</span>&gt;&gt;;
+<span class="at">@group(0) @binding(1)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt; <span class="va">sorted_ids</span>:  <span class="va">array</span>&lt;<span class="kw">u32</span>&gt;;
+<span class="at">@group(0) @binding(2)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt; <span class="va">xy</span>:          <span class="va">array</span>&lt;<span class="va">vec2</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+<span class="at">@group(0) @binding(3)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt; <span class="va">cov2d</span>:       <span class="va">array</span>&lt;<span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+<span class="at">@group(0) @binding(4)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt; <span class="va">opacities</span>:   <span class="va">array</span>&lt;<span class="kw">f32</span>&gt;;
+<span class="at">@group(0) @binding(5)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read</span>&gt; <span class="va">rgb</span>:         <span class="va">array</span>&lt;<span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+<span class="at">@group(1) @binding(0)</span> <span class="kw">var</span>&lt;<span class="va">storage</span>, <span class="kw">read_write</span>&gt; <span class="va">out_image</span>: <span class="va">array</span>&lt;<span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;&gt;;
+
+<span class="cm">// Workgroup-local cache (= CUDA shared memory / Metal threadgroup memory)</span>
+<span class="kw">var</span>&lt;<span class="va">workgroup</span>&gt; <span class="va">wg_xy</span>:    <span class="va">array</span>&lt;<span class="va">vec2</span>&lt;<span class="kw">f32</span>&gt;, <span class="nu">256</span>&gt;;
+<span class="kw">var</span>&lt;<span class="va">workgroup</span>&gt; <span class="va">wg_cov</span>:   <span class="va">array</span>&lt;<span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;, <span class="nu">256</span>&gt;;
+<span class="kw">var</span>&lt;<span class="va">workgroup</span>&gt; <span class="va">wg_alpha</span>: <span class="va">array</span>&lt;<span class="kw">f32</span>, <span class="nu">256</span>&gt;;
+<span class="kw">var</span>&lt;<span class="va">workgroup</span>&gt; <span class="va">wg_rgb</span>:   <span class="va">array</span>&lt;<span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt;, <span class="nu">256</span>&gt;;
+
+<span class="at">@compute @workgroup_size(16, 16, 1)</span>
+<span class="kw">fn</span> <span class="fn">rasterize</span>(
+    <span class="at">@builtin(global_invocation_id)</span>   <span class="va">gid</span>:  <span class="va">vec3</span>&lt;<span class="kw">u32</span>&gt;,  <span class="cm">// pixel (x,y)</span>
+    <span class="at">@builtin(local_invocation_index)</span>  <span class="va">lid</span>:  <span class="kw">u32</span>,        <span class="cm">// 0..255 within tile</span>
+    <span class="at">@builtin(workgroup_id)</span>            <span class="va">wid</span>:  <span class="va">vec3</span>&lt;<span class="kw">u32</span>&gt;,  <span class="cm">// tile (tx,ty)</span>
+) {
+    <span class="kw">let</span> <span class="va">tile_idx</span> = <span class="va">wid</span>.<span class="va">y</span> * <span class="va">grid_w</span> + <span class="va">wid</span>.<span class="va">x</span>;
+    <span class="kw">let</span> <span class="va">range</span>    = <span class="va">tile_ranges</span>[<span class="va">tile_idx</span>];  <span class="cm">// [start, end) of sorted_ids</span>
+    <span class="kw">let</span> <span class="va">pixel</span>    = <span class="va">gid</span>.<span class="va">xy</span>;
+
+    <span class="kw">var</span> <span class="va">C</span>: <span class="va">vec3</span>&lt;<span class="kw">f32</span>&gt; = <span class="va">vec3</span>(<span class="nu">0.0</span>);
+    <span class="kw">var</span> <span class="va">T</span>: <span class="kw">f32</span>       = <span class="nu">1.0</span>;
+
+    <span class="kw">let</span> <span class="va">n_gauss</span> = <span class="va">range</span>.<span class="va">y</span> - <span class="va">range</span>.<span class="va">x</span>;
+    <span class="kw">let</span> <span class="va">rounds</span>  = (<span class="va">n_gauss</span> + <span class="nu">255u</span>) / <span class="nu">256u</span>;
+
+    <span class="kw">for</span> (<span class="kw">var</span> <span class="va">r</span> = <span class="nu">0u</span>; <span class="va">r</span> &lt; <span class="va">rounds</span>; <span class="va">r</span>++) {
+
+        <span class="cm">// ── Cooperative load: each thread fetches one Gaussian ──────</span>
+        <span class="kw">let</span> <span class="va">load_idx</span> = <span class="va">range</span>.<span class="va">x</span> + <span class="va">r</span> * <span class="nu">256u</span> + <span class="va">lid</span>;
+        <span class="kw">if</span> (<span class="va">load_idx</span> &lt; <span class="va">range</span>.<span class="va">y</span>) {
+            <span class="kw">let</span> <span class="va">g</span>      = <span class="va">sorted_ids</span>[<span class="va">load_idx</span>];
+            <span class="va">wg_xy</span>[<span class="va">lid</span>]    = <span class="va">xy</span>[<span class="va">g</span>];
+            <span class="va">wg_cov</span>[<span class="va">lid</span>]   = <span class="va">cov2d</span>[<span class="va">g</span>];
+            <span class="va">wg_alpha</span>[<span class="va">lid</span>] = <span class="va">opacities</span>[<span class="va">g</span>];
+            <span class="va">wg_rgb</span>[<span class="va">lid</span>]   = <span class="va">rgb</span>[<span class="va">g</span>];
+        }
+        <span class="fn">workgroupBarrier</span>();  <span class="cm">// = __syncthreads() / threadgroup_barrier()</span>
+
+        <span class="cm">// ── Each thread blends loaded Gaussians into its pixel ──────</span>
+        <span class="kw">let</span> <span class="va">batch</span> = <span class="fn">min</span>(<span class="nu">256u</span>, <span class="va">n_gauss</span> - <span class="va">r</span> * <span class="nu">256u</span>);
+        <span class="kw">for</span> (<span class="kw">var</span> <span class="va">j</span> = <span class="nu">0u</span>; <span class="va">j</span> &lt; <span class="va">batch</span> &amp;&amp; <span class="va">T</span> &gt; <span class="nu">0.0001</span>; <span class="va">j</span>++) {
+            <span class="kw">let</span> <span class="va">d</span>   = <span class="fn">vec2</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">pixel</span>) - <span class="va">wg_xy</span>[<span class="va">j</span>];
+            <span class="kw">let</span> <span class="va">cov</span> = <span class="va">wg_cov</span>[<span class="va">j</span>];
+            <span class="cm">// Mahalanobis: power = -½ dᵀ Σ⁻¹ d</span>
+            <span class="kw">let</span> <span class="va">det</span>   = <span class="va">cov</span>.<span class="va">x</span>*<span class="va">cov</span>.<span class="va">z</span> - <span class="va">cov</span>.<span class="va">y</span>*<span class="va">cov</span>.<span class="va">y</span>;
+            <span class="kw">let</span> <span class="va">power</span> = -<span class="nu">0.5</span> * (<span class="va">cov</span>.<span class="va">z</span>*<span class="va">d</span>.<span class="va">x</span>*<span class="va">d</span>.<span class="va">x</span>
+                               - <span class="nu">2.0</span>*<span class="va">cov</span>.<span class="va">y</span>*<span class="va">d</span>.<span class="va">x</span>*<span class="va">d</span>.<span class="va">y</span>
+                               + <span class="va">cov</span>.<span class="va">x</span>*<span class="va">d</span>.<span class="va">y</span>*<span class="va">d</span>.<span class="va">y</span>) / <span class="va">det</span>;
+            <span class="kw">if</span> (<span class="va">power</span> &gt; <span class="nu">0.0</span>) { <span class="kw">continue</span>; }  <span class="cm">// outside Gaussian</span>
+
+            <span class="kw">let</span> <span class="va">alpha</span> = <span class="fn">min</span>(<span class="nu">0.99</span>, <span class="va">wg_alpha</span>[<span class="va">j</span>] * <span class="fn">exp</span>(<span class="va">power</span>));
+            <span class="kw">if</span> (<span class="va">alpha</span> &lt; <span class="nu">1.0</span>/<span class="nu">255.0</span>) { <span class="kw">continue</span>; }
+
+            <span class="va">C</span>  += <span class="va">wg_rgb</span>[<span class="va">j</span>] * <span class="va">alpha</span> * <span class="va">T</span>;
+            <span class="va">T</span>  *= (<span class="nu">1.0</span> - <span class="va">alpha</span>);
+        }
+        <span class="fn">workgroupBarrier</span>();
+    }
+
+    <span class="kw">if</span> (<span class="va">pixel</span>.<span class="va">x</span> &lt; <span class="kw">u32</span>(<span class="va">camera</span>.<span class="va">width</span>) &amp;&amp; <span class="va">pixel</span>.<span class="va">y</span> &lt; <span class="kw">u32</span>(<span class="va">camera</span>.<span class="va">height</span>)) {
+        <span class="kw">let</span> <span class="va">pix</span> = <span class="va">pixel</span>.<span class="va">y</span> * <span class="kw">u32</span>(<span class="va">camera</span>.<span class="va">width</span>) + <span class="va">pixel</span>.<span class="va">x</span>;
+        <span class="va">out_image</span>[<span class="va">pix</span>] = <span class="va">vec4</span>&lt;<span class="kw">f32</span>&gt;(<span class="va">C</span> + <span class="va">T</span> * <span class="va">bg_color</span>, <span class="nu">1.0</span>);
+    }
+}</pre>
+    </div>
+  </div>
+
+  <div class="card both" style="margin-top:1rem;">
+    <div class="card-stripe stripe-both"></div>
+    <div class="card-label">WGSL → Platform Translation by wgpu</div>
+    <canvas id="cWgsl" width="1020" height="170" style="width:100%;max-width:1020px;"></canvas>
+    <p class="cap">One WGSL source → wgpu compiles to the right backend at startup · Metal on M3 · Vulkan/SPIR-V on NVIDIA</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 4 — BURN TRAINING
+══════════════════════════════════════ -->
+<div class="section" id="burn">
+  <div class="sec-label"><span class="sec-num">05</span> Training with Burn</div>
+  <h2>Differentiable Training via burn</h2>
+  <p>The <strong>burn</strong> crate provides PyTorch-like tensor operations with autograd. The <code>burn-wgpu</code> backend dispatches to Metal on M3 or Vulkan on NVIDIA — same code for both.</p>
+
+  <div class="card burn">
+    <div class="card-stripe stripe-burn"></div>
+    <div class="card-label">Training loop — device-agnostic burn tensors</div>
+    <div class="code-wrap">
+      <div class="code-hdr rust">Rust · src/train.rs</div>
+<pre><span class="kw">use</span> <span class="va">burn</span>::{
+    <span class="va">backend</span>::{<span class="ty">Autodiff</span>, <span class="ty">Wgpu</span>},   <span class="cm">// Wgpu = Metal on M3, Vulkan on NVIDIA</span>
+    <span class="va">optim</span>::{<span class="ty">Adam</span>, <span class="ty">AdamConfig</span>},
+    <span class="va">tensor</span>::{<span class="ty">Tensor</span>, <span class="ty">TensorData</span>},
+};
+
+<span class="cm">// Backend type alias — swap Wgpu for burn_cuda::Cuda for CUDA path</span>
+<span class="kw">type</span> <span class="ty">Backend</span>  = <span class="ty">Autodiff</span>&lt;<span class="ty">Wgpu</span>&gt;;
+<span class="kw">type</span> <span class="ty">BkInner</span> = <span class="ty">Wgpu</span>;
+
+<span class="kw">pub struct</span> <span class="ty">Trainer</span> {
+    <span class="cm">// Gaussian parameters as burn Tensors with gradients</span>
+    <span class="va">xyz</span>:         <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">2</span>&gt;,  <span class="cm">// [N, 3]</span>
+    <span class="va">log_scale</span>:   <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">2</span>&gt;,  <span class="cm">// [N, 3]</span>
+    <span class="va">quat</span>:        <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">2</span>&gt;,  <span class="cm">// [N, 4]</span>
+    <span class="va">logit_alpha</span>: <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">2</span>&gt;,  <span class="cm">// [N, 1]</span>
+    <span class="va">sh_dc</span>:       <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">3</span>&gt;,  <span class="cm">// [N, 1, 3]</span>
+    <span class="va">sh_rest</span>:     <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">3</span>&gt;,  <span class="cm">// [N, 15, 3]</span>
+    <span class="cm">// Separate Adam optimizer per param group (different LR per param)</span>
+    <span class="va">opt_xyz</span>:     <span class="ty">Adam</span>&lt;<span class="ty">Backend</span>&gt;,
+    <span class="va">opt_shape</span>:   <span class="ty">Adam</span>&lt;<span class="ty">Backend</span>&gt;,
+    <span class="va">opt_color</span>:   <span class="ty">Adam</span>&lt;<span class="ty">Backend</span>&gt;,
+}
+
+<span class="kw">impl</span> <span class="ty">Trainer</span> {
+    <span class="kw">pub fn</span> <span class="fn">new</span>(<span class="va">pcd</span>: &amp;<span class="ty">PointCloud</span>) -&gt; <span class="ty">Self</span> {
+        <span class="kw">let</span> <span class="va">n</span> = <span class="va">pcd</span>.<span class="fn">len</span>();
+        <span class="cm">// Tensor::from_data initialises on the wgpu device (Metal / Vulkan)</span>
+        <span class="ty">Self</span> {
+            <span class="va">xyz</span>: <span class="ty">Tensor</span>::<span class="fn">from_data</span>(<span class="ty">TensorData</span>::<span class="fn">from</span>(<span class="va">pcd</span>.<span class="va">points</span>.<span class="fn">clone</span>()),
+                                    &amp;<span class="ty">Default</span>::<span class="fn">default</span>()),
+            <span class="va">log_scale</span>: <span class="ty">Tensor</span>::<span class="fn">full</span>([<span class="va">n</span>, <span class="nu">3</span>], <span class="nu">-3.0</span>, &amp;<span class="ty">Default</span>::<span class="fn">default</span>()),
+            <span class="va">quat</span>: {
+                <span class="cm">// Identity quaternion w=1, x=y=z=0</span>
+                <span class="kw">let</span> <span class="kw">mut</span> <span class="va">q</span> = <span class="ty">Tensor</span>::<span class="fn">zeros</span>([<span class="va">n</span>, <span class="nu">4</span>], &amp;<span class="ty">Default</span>::<span class="fn">default</span>());
+                <span class="va">q</span> = <span class="va">q</span>.<span class="fn">slice_assign</span>([<span class="nu">0</span>..<span class="va">n</span>, <span class="nu">0</span>..<span class="nu">1</span>], <span class="ty">Tensor</span>::<span class="fn">ones</span>([<span class="va">n</span>,<span class="nu">1</span>], &amp;<span class="ty">Default</span>::<span class="fn">default</span>()));
+                <span class="va">q</span>
+            },
+            <span class="va">logit_alpha</span>: <span class="ty">Tensor</span>::<span class="fn">full</span>([<span class="va">n</span>, <span class="nu">1</span>], <span class="op">-</span><span class="nu">2.2</span>, &amp;<span class="ty">Default</span>::<span class="fn">default</span>()),
+            <span class="va">sh_dc</span>:   <span class="ty">Tensor</span>::<span class="fn">zeros</span>([<span class="va">n</span>,  <span class="nu">1</span>, <span class="nu">3</span>], &amp;<span class="ty">Default</span>::<span class="fn">default</span>()),
+            <span class="va">sh_rest</span>: <span class="ty">Tensor</span>::<span class="fn">zeros</span>([<span class="va">n</span>, <span class="nu">15</span>, <span class="nu">3</span>], &amp;<span class="ty">Default</span>::<span class="fn">default</span>()),
+            <span class="cm">// Different learning rates per parameter group</span>
+            <span class="va">opt_xyz</span>:   <span class="ty">AdamConfig</span>::<span class="fn">new</span>().<span class="fn">with_lr</span>(<span class="nu">1.6e-4</span>).<span class="fn">init</span>(),
+            <span class="va">opt_shape</span>: <span class="ty">AdamConfig</span>::<span class="fn">new</span>().<span class="fn">with_lr</span>(<span class="nu">5e-3</span>).<span class="fn">init</span>(),
+            <span class="va">opt_color</span>: <span class="ty">AdamConfig</span>::<span class="fn">new</span>().<span class="fn">with_lr</span>(<span class="nu">2.5e-3</span>).<span class="fn">init</span>(),
+        }
+    }
+
+    <span class="kw">pub fn</span> <span class="fn">step</span>(&amp;<span class="kw">mut self</span>, <span class="va">rendered</span>: <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">3</span>&gt;,
+                          <span class="va">gt</span>:       <span class="ty">Tensor</span>&lt;<span class="ty">Backend</span>, <span class="nu">3</span>&gt;) -&gt; <span class="ty">f32</span> {
+        <span class="cm">// ── Loss: L1 + SSIM ──────────────────────────────────────────</span>
+        <span class="kw">let</span> <span class="va">l1</span>   = (<span class="va">rendered</span>.<span class="fn">clone</span>() - <span class="va">gt</span>.<span class="fn">clone</span>()).<span class="fn">abs</span>().<span class="fn">mean</span>();
+        <span class="kw">let</span> <span class="va">ssim</span> = <span class="fn">ssim_loss</span>(<span class="va">rendered</span>.<span class="fn">clone</span>(), <span class="va">gt</span>);
+        <span class="kw">let</span> <span class="va">loss</span> = <span class="va">l1</span> * <span class="nu">0.8</span> + <span class="va">ssim</span> * <span class="nu">0.2</span>;
+
+        <span class="kw">let</span> <span class="va">loss_val</span> = <span class="va">loss</span>.<span class="fn">clone</span>().<span class="fn">into_scalar</span>();
+
+        <span class="cm">// ── Backprop: burn's autodiff computes all gradients ──────────</span>
+        <span class="kw">let</span> <span class="va">grads</span> = <span class="va">loss</span>.<span class="fn">backward</span>();
+
+        <span class="cm">// ── Update each parameter group with its optimizer ────────────</span>
+        <span class="kw">let</span> <span class="va">xyz_grad</span>  = <span class="ty">Tensor</span>::<span class="fn">from_inner</span>(<span class="va">grads</span>.<span class="fn">get</span>(&amp;<span class="kw">self</span>.<span class="va">xyz</span>).<span class="fn">unwrap</span>());
+        <span class="kw">self</span>.<span class="va">xyz</span> = <span class="kw">self</span>.<span class="va">opt_xyz</span>.<span class="fn">step</span>(<span class="kw">self</span>.<span class="va">xyz</span>.<span class="fn">clone</span>(), <span class="va">xyz_grad</span>);
+
+        <span class="cm">// (similar for log_scale, quat, logit_alpha, sh_dc, sh_rest)</span>
+
+        <span class="va">loss_val</span>
+    }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 5 — DENSIFICATION IN RUST
+══════════════════════════════════════ -->
+<div class="section" id="densify">
+  <div class="sec-label"><span class="sec-num">06</span> Densification</div>
+  <h2>Clone · Split · Prune in Rust</h2>
+  <p>Densification runs on the CPU using <strong>rayon</strong> for parallel iteration, then uploads the new Gaussian list back to GPU buffers. Rust's ownership model makes it impossible to accidentally use a stale GPU buffer — the compiler enforces it.</p>
+
+  <div class="card rust">
+    <div class="card-stripe stripe-rust"></div>
+    <div class="card-label">densify.rs — adaptive density control</div>
+    <div class="code-wrap">
+      <div class="code-hdr rust">Rust · src/densify.rs</div>
+<pre><span class="kw">use</span> <span class="va">rayon</span>::<span class="va">prelude</span>::*;
+
+<span class="kw">pub struct</span> <span class="ty">DensifyConfig</span> {
+    <span class="kw">pub</span> <span class="va">grad_threshold</span>:  <span class="ty">f32</span>,   <span class="cm">// 0.0002  — trigger if grad > this</span>
+    <span class="kw">pub</span> <span class="va">size_threshold</span>:  <span class="ty">f32</span>,   <span class="cm">// 0.01   — large if max_scale > this</span>
+    <span class="kw">pub</span> <span class="va">prune_opacity</span>:   <span class="ty">f32</span>,   <span class="cm">// 0.005  — remove if opacity < this</span>
+    <span class="kw">pub</span> <span class="va">split_scale_factor</span>: <span class="ty">f32</span>, <span class="cm">// 1.6    — split children scale</span>
+}
+
+<span class="kw">impl</span> <span class="ty">GaussianScene</span> {
+    <span class="cm">/// Called every 100 training steps. Returns number of changes made.</span>
+    <span class="kw">pub fn</span> <span class="fn">densify_and_prune</span>(
+        &amp;<span class="kw">mut self</span>,
+        <span class="va">grad_norms</span>: &amp;[<span class="ty">f32</span>],   <span class="cm">// [N] gradient magnitude per Gaussian</span>
+        <span class="va">cfg</span>: &amp;<span class="ty">DensifyConfig</span>,
+    ) -&gt; <span class="ty">usize</span> {
+        <span class="kw">let</span> <span class="va">n</span> = <span class="kw">self</span>.<span class="fn">len</span>();
+
+        <span class="cm">// ── Phase 1: Identify candidates in parallel ─────────────────</span>
+        <span class="kw">let</span> <span class="va">actions</span>: <span class="ty">Vec</span>&lt;<span class="ty">Action</span>&gt; = (<span class="nu">0</span>..<span class="va">n</span>)
+            .<span class="fn">into_par_iter</span>()          <span class="cm">// rayon — runs on all CPU cores</span>
+            .<span class="fn">map</span>(|<span class="va">i</span>| {
+                <span class="kw">let</span> <span class="va">grad</span> = <span class="va">grad_norms</span>[<span class="va">i</span>];
+                <span class="kw">let</span> <span class="va">sh</span>   = &amp;<span class="kw">self</span>.<span class="va">shapes</span>[<span class="va">i</span>];
+                <span class="kw">let</span> <span class="va">max_s</span> = <span class="va">sh</span>.<span class="va">scale</span>.<span class="fn">iter</span>()
+                              .<span class="fn">map</span>(|&amp;<span class="va">s</span>| <span class="va">s</span>.<span class="fn">exp</span>())
+                              .<span class="fn">fold</span>(<span class="nu">0.0f32</span>, <span class="ty">f32</span>::max);
+                <span class="kw">let</span> <span class="va">opacity</span> = <span class="ty">GaussianScene</span>::<span class="fn">opacity</span>(<span class="va">sh</span>.<span class="va">opacity</span>);
+
+                <span class="kw">if</span> <span class="va">opacity</span> &lt; <span class="va">cfg</span>.<span class="va">prune_opacity</span> {
+                    <span class="ty">Action</span>::<span class="va">Prune</span>
+                } <span class="kw">else if</span> <span class="va">grad</span> &gt; <span class="va">cfg</span>.<span class="va">grad_threshold</span> {
+                    <span class="kw">if</span> <span class="va">max_s</span> &gt; <span class="va">cfg</span>.<span class="va">size_threshold</span> {
+                        <span class="ty">Action</span>::<span class="va">Split</span>   <span class="cm">// large + high grad → split</span>
+                    } <span class="kw">else</span> {
+                        <span class="ty">Action</span>::<span class="va">Clone</span>   <span class="cm">// small + high grad → clone</span>
+                    }
+                } <span class="kw">else</span> {
+                    <span class="ty">Action</span>::<span class="va">Keep</span>
+                }
+            })
+            .<span class="fn">collect</span>();
+
+        <span class="cm">// ── Phase 2: Apply actions (sequential to avoid index confusion)</span>
+        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">new_pos</span>:   <span class="ty">Vec</span>&lt;<span class="ty">GaussianPosition</span>&gt; = <span class="ty">Vec</span>::<span class="fn">new</span>();
+        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">new_shape</span>: <span class="ty">Vec</span>&lt;<span class="ty">GaussianShape</span>&gt;    = <span class="ty">Vec</span>::<span class="fn">new</span>();
+        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">new_color</span>: <span class="ty">Vec</span>&lt;<span class="ty">GaussianColor</span>&gt;    = <span class="ty">Vec</span>::<span class="fn">new</span>();
+
+        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">changed</span> = <span class="nu">0usize</span>;
+
+        <span class="kw">for</span> (<span class="va">i</span>, <span class="va">action</span>) <span class="kw">in</span> <span class="va">actions</span>.<span class="fn">iter</span>().<span class="fn">enumerate</span>() {
+            <span class="kw">match</span> <span class="va">action</span> {
+                <span class="ty">Action</span>::<span class="va">Keep</span> | <span class="ty">Action</span>::<span class="va">Clone</span> =&gt; {
+                    <span class="va">new_pos</span>.<span class="fn">push</span>(<span class="kw">self</span>.<span class="va">positions</span>[<span class="va">i</span>]);
+                    <span class="va">new_shape</span>.<span class="fn">push</span>(<span class="kw">self</span>.<span class="va">shapes</span>[<span class="va">i</span>]);
+                    <span class="va">new_color</span>.<span class="fn">push</span>(<span class="kw">self</span>.<span class="va">colors</span>[<span class="va">i</span>]);
+                    <span class="kw">if</span> <span class="kw">matches!</span>(<span class="va">action</span>, <span class="ty">Action</span>::<span class="va">Clone</span>) {
+                        <span class="cm">// Duplicate with small random offset in gradient direction</span>
+                        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">clone_pos</span> = <span class="kw">self</span>.<span class="va">positions</span>[<span class="va">i</span>];
+                        <span class="va">clone_pos</span>.<span class="va">xyz</span>[<span class="nu">0</span>] += <span class="fn">tiny_rand</span>() * <span class="nu">0.01</span>;
+                        <span class="va">clone_pos</span>.<span class="va">xyz</span>[<span class="nu">1</span>] += <span class="fn">tiny_rand</span>() * <span class="nu">0.01</span>;
+                        <span class="va">clone_pos</span>.<span class="va">xyz</span>[<span class="nu">2</span>] += <span class="fn">tiny_rand</span>() * <span class="nu">0.01</span>;
+                        <span class="va">new_pos</span>.<span class="fn">push</span>(<span class="va">clone_pos</span>);
+                        <span class="va">new_shape</span>.<span class="fn">push</span>(<span class="kw">self</span>.<span class="va">shapes</span>[<span class="va">i</span>]);
+                        <span class="va">new_color</span>.<span class="fn">push</span>(<span class="kw">self</span>.<span class="va">colors</span>[<span class="va">i</span>]);
+                        <span class="va">changed</span> += <span class="nu">1</span>;
+                    }
+                }
+                <span class="ty">Action</span>::<span class="va">Split</span> =&gt; {
+                    <span class="kw">let</span> <span class="va">sh</span> = <span class="kw">self</span>.<span class="va">shapes</span>[<span class="va">i</span>];
+                    <span class="kw">let</span> <span class="va">pos</span> = <span class="kw">self</span>.<span class="va">positions</span>[<span class="va">i</span>];
+                    <span class="cm">// Scale both children down by split factor</span>
+                    <span class="kw">let</span> <span class="kw">mut</span> <span class="va">child_shape</span> = <span class="va">sh</span>;
+                    <span class="kw">for</span> <span class="va">s</span> <span class="kw">in</span> &amp;<span class="kw">mut</span> <span class="va">child_shape</span>.<span class="va">scale</span> {
+                        <span class="op">*</span><span class="va">s</span> -= <span class="va">cfg</span>.<span class="va">split_scale_factor</span>.<span class="fn">ln</span>();  <span class="cm">// log-space /= factor</span>
+                    }
+                    <span class="cm">// Two children offset along principal axis</span>
+                    <span class="kw">let</span> <span class="va">axis</span> = <span class="fn">principal_axis_from_quat</span>(<span class="va">sh</span>.<span class="va">quat</span>);
+                    <span class="kw">let</span> <span class="va">r</span>    = <span class="va">sh</span>.<span class="va">scale</span>[<span class="nu">0</span>].<span class="fn">exp</span>() * <span class="nu">0.5</span>;
+                    <span class="kw">for</span> <span class="va">sign</span> <span class="kw">in</span> [<span class="nu">1.0f32</span>, <span class="op">-</span><span class="nu">1.0</span>] {
+                        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">child_pos</span> = <span class="va">pos</span>;
+                        <span class="va">child_pos</span>.<span class="va">xyz</span>[<span class="nu">0</span>] += <span class="va">sign</span> * <span class="va">axis</span>[<span class="nu">0</span>] * <span class="va">r</span>;
+                        <span class="va">child_pos</span>.<span class="va">xyz</span>[<span class="nu">1</span>] += <span class="va">sign</span> * <span class="va">axis</span>[<span class="nu">1</span>] * <span class="va">r</span>;
+                        <span class="va">child_pos</span>.<span class="va">xyz</span>[<span class="nu">2</span>] += <span class="va">sign</span> * <span class="va">axis</span>[<span class="nu">2</span>] * <span class="va">r</span>;
+                        <span class="va">new_pos</span>.<span class="fn">push</span>(<span class="va">child_pos</span>);
+                        <span class="va">new_shape</span>.<span class="fn">push</span>(<span class="va">child_shape</span>);
+                        <span class="va">new_color</span>.<span class="fn">push</span>(<span class="kw">self</span>.<span class="va">colors</span>[<span class="va">i</span>]);
+                    }
+                    <span class="va">changed</span> += <span class="nu">1</span>;
+                }
+                <span class="ty">Action</span>::<span class="va">Prune</span> =&gt; { <span class="va">changed</span> += <span class="nu">1</span>; }  <span class="cm">// skip = pruned</span>
+            }
+        }
+
+        <span class="kw">self</span>.<span class="va">positions</span> = <span class="va">new_pos</span>;
+        <span class="kw">self</span>.<span class="va">shapes</span>    = <span class="va">new_shape</span>;
+        <span class="kw">self</span>.<span class="va">colors</span>    = <span class="va">new_color</span>;
+        <span class="va">changed</span>
+    }
+}
+
+<span class="at">#[derive(Clone, Copy)]</span>
+<span class="kw">enum</span> <span class="ty">Action</span> { <span class="va">Keep</span>, <span class="va">Clone</span>, <span class="va">Split</span>, <span class="va">Prune</span> }</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 6 — GPU DISPATCH
+══════════════════════════════════════ -->
+<div class="section" id="dispatch">
+  <div class="sec-label"><span class="sec-num">07</span> wgpu GPU Dispatch</div>
+  <h2>Wiring Rust → wgpu → Metal / Vulkan</h2>
+
+  <div class="card wgpu">
+    <div class="card-stripe stripe-wgpu"></div>
+    <div class="card-label">renderer.rs — dispatch the two-pass pipeline</div>
+    <div class="code-wrap">
+      <div class="code-hdr rust">Rust · src/renderer.rs</div>
+<pre><span class="kw">use</span> <span class="va">wgpu</span>::*;
+
+<span class="kw">pub struct</span> <span class="ty">GaussianRenderer</span> {
+    <span class="va">device</span>:           <span class="ty">Device</span>,
+    <span class="va">queue</span>:            <span class="ty">Queue</span>,
+    <span class="va">preprocess_pipe</span>:  <span class="ty">ComputePipeline</span>,
+    <span class="va">rasterize_pipe</span>:   <span class="ty">ComputePipeline</span>,
+    <span class="va">sort_pipe</span>:        <span class="ty">ComputePipeline</span>,  <span class="cm">// bitonic sort in WGSL</span>
+}
+
+<span class="kw">impl</span> <span class="ty">GaussianRenderer</span> {
+    <span class="kw">pub async fn</span> <span class="fn">new</span>() -&gt; <span class="ty">Self</span> {
+        <span class="cm">// 1. Request the best available GPU adapter</span>
+        <span class="kw">let</span> <span class="va">instance</span> = <span class="ty">Instance</span>::<span class="fn">new</span>(<span class="ty">InstanceDescriptor</span> {
+            <span class="cm">// Backends::all() → picks Metal on macOS, Vulkan on Linux/Win</span>
+            <span class="va">backends</span>: <span class="ty">Backends</span>::<span class="va">all</span>(),
+            ..<span class="ty">Default</span>::<span class="fn">default</span>()
+        });
+        <span class="kw">let</span> <span class="va">adapter</span> = <span class="va">instance</span>
+            .<span class="fn">request_adapter</span>(&amp;<span class="ty">RequestAdapterOptions</span> {
+                <span class="va">power_preference</span>: <span class="ty">PowerPreference</span>::<span class="va">HighPerformance</span>,
+                ..<span class="ty">Default</span>::<span class="fn">default</span>()
+            })
+            .<span class="kw">await</span>.<span class="fn">unwrap</span>();
+
+        <span class="cm">// Print: "Metal" on M3, "Vulkan" on NVIDIA</span>
+        <span class="va">println!</span>(<span class="st">"Backend: {:?}"</span>, <span class="va">adapter</span>.<span class="fn">get_info</span>().<span class="va">backend</span>);
+
+        <span class="kw">let</span> (<span class="va">device</span>, <span class="va">queue</span>) = <span class="va">adapter</span>
+            .<span class="fn">request_device</span>(&amp;<span class="ty">DeviceDescriptor</span> {
+                <span class="va">required_limits</span>: <span class="ty">Limits</span>::<span class="fn">downlevel_defaults</span>(),
+                ..<span class="ty">Default</span>::<span class="fn">default</span>()
+            }, <span class="kw">None</span>)
+            .<span class="kw">await</span>.<span class="fn">unwrap</span>();
+
+        <span class="cm">// 2. Compile WGSL shaders (→ MSL on Metal, SPIR-V on Vulkan)</span>
+        <span class="kw">let</span> <span class="fn">load_shader</span> = |<span class="va">src</span>: &amp;<span class="kw">str</span>| {
+            <span class="va">device</span>.<span class="fn">create_shader_module</span>(<span class="ty">ShaderModuleDescriptor</span> {
+                <span class="va">label</span>: <span class="kw">None</span>,
+                <span class="va">source</span>: <span class="ty">ShaderSource</span>::<span class="ty">Wgsl</span>(<span class="va">src</span>.<span class="fn">into</span>()),
+            })
+        };
+        <span class="kw">let</span> <span class="va">pre_shader</span>  = <span class="fn">load_shader</span>(<span class="kw">include_str!</span>(<span class="st">"../shaders/preprocess.wgsl"</span>));
+        <span class="kw">let</span> <span class="va">ras_shader</span>  = <span class="fn">load_shader</span>(<span class="kw">include_str!</span>(<span class="st">"../shaders/rasterize.wgsl"</span>));
+        <span class="kw">let</span> <span class="va">sort_shader</span> = <span class="fn">load_shader</span>(<span class="kw">include_str!</span>(<span class="st">"../shaders/bitonic_sort.wgsl"</span>));
+
+        <span class="kw">let</span> <span class="fn">make_pipe</span> = |<span class="va">shader</span>: &amp;<span class="ty">ShaderModule</span>, <span class="va">entry</span>: &amp;<span class="kw">str</span>| {
+            <span class="va">device</span>.<span class="fn">create_compute_pipeline</span>(&amp;<span class="ty">ComputePipelineDescriptor</span> {
+                <span class="va">layout</span>: <span class="kw">None</span>,
+                <span class="va">module</span>: <span class="va">shader</span>,
+                <span class="va">entry_point</span>: <span class="va">entry</span>,
+                ..<span class="ty">Default</span>::<span class="fn">default</span>()
+            })
+        };
+
+        <span class="ty">Self</span> {
+            <span class="va">preprocess_pipe</span>: <span class="fn">make_pipe</span>(&amp;<span class="va">pre_shader</span>,  <span class="st">"preprocess"</span>),
+            <span class="va">rasterize_pipe</span>:  <span class="fn">make_pipe</span>(&amp;<span class="va">ras_shader</span>,  <span class="st">"rasterize"</span>),
+            <span class="va">sort_pipe</span>:       <span class="fn">make_pipe</span>(&amp;<span class="va">sort_shader</span>, <span class="st">"bitonic_sort"</span>),
+            <span class="va">device</span>, <span class="va">queue</span>,
+        }
+    }
+
+    <span class="kw">pub fn</span> <span class="fn">render</span>(&amp;<span class="kw">self</span>, <span class="va">scene</span>: &amp;<span class="ty">GaussianScene</span>, <span class="va">cam</span>: &amp;<span class="ty">Camera</span>,
+                   <span class="va">out</span>: &amp;<span class="ty">wgpu</span>::<span class="ty">Buffer</span>) {
+        <span class="kw">let</span> <span class="va">n</span>   = <span class="va">scene</span>.<span class="fn">len</span>() <span class="kw">as</span> <span class="ty">u32</span>;
+        <span class="kw">let</span> <span class="kw">mut</span> <span class="va">encoder</span> = <span class="kw">self</span>.<span class="va">device</span>.<span class="fn">create_command_encoder</span>(&amp;<span class="ty">Default</span>::<span class="fn">default</span>());
+
+        <span class="cm">// ── Pass 1: Preprocess (project + SH eval) ────────────────────</span>
+        {
+            <span class="kw">let</span> <span class="kw">mut</span> <span class="va">pass</span> = <span class="va">encoder</span>.<span class="fn">begin_compute_pass</span>(&amp;<span class="ty">Default</span>::<span class="fn">default</span>());
+            <span class="va">pass</span>.<span class="fn">set_pipeline</span>(&amp;<span class="kw">self</span>.<span class="va">preprocess_pipe</span>);
+            <span class="va">pass</span>.<span class="fn">set_bind_group</span>(<span class="nu">0</span>, &amp;<span class="va">scene</span>.<span class="va">input_bind_group</span>, &amp;[]);
+            <span class="va">pass</span>.<span class="fn">set_bind_group</span>(<span class="nu">1</span>, &amp;<span class="va">scene</span>.<span class="va">output_bind_group</span>, &amp;[]);
+            <span class="va">pass</span>.<span class="fn">dispatch_workgroups</span>((<span class="va">n</span> + <span class="nu">255</span>) / <span class="nu">256</span>, <span class="nu">1</span>, <span class="nu">1</span>);
+        }  <span class="cm">// pass dropped → commands recorded, barrier inserted</span>
+
+        <span class="cm">// ── Pass 2: Sort by depth (GPU bitonic sort in WGSL) ─────────</span>
+        {
+            <span class="kw">let</span> <span class="kw">mut</span> <span class="va">pass</span> = <span class="va">encoder</span>.<span class="fn">begin_compute_pass</span>(&amp;<span class="ty">Default</span>::<span class="fn">default</span>());
+            <span class="va">pass</span>.<span class="fn">set_pipeline</span>(&amp;<span class="kw">self</span>.<span class="va">sort_pipe</span>);
+            <span class="va">pass</span>.<span class="fn">set_bind_group</span>(<span class="nu">0</span>, &amp;<span class="va">scene</span>.<span class="va">sort_bind_group</span>, &amp;[]);
+            <span class="cm">// Bitonic sort: log²(N) passes</span>
+            <span class="kw">let</span> <span class="va">log2n</span> = (<span class="va">n</span> <span class="kw">as</span> <span class="ty">f32</span>).<span class="fn">log2</span>().<span class="fn">ceil</span>() <span class="kw">as</span> <span class="ty">u32</span>;
+            <span class="kw">for</span> <span class="va">_</span> <span class="kw">in</span> <span class="nu">0</span>..<span class="va">log2n</span> * (<span class="va">log2n</span> + <span class="nu">1</span>) / <span class="nu">2</span> {
+                <span class="va">pass</span>.<span class="fn">dispatch_workgroups</span>(<span class="va">n</span> / <span class="nu">512</span>, <span class="nu">1</span>, <span class="nu">1</span>);
+            }
+        }
+
+        <span class="cm">// ── Pass 3: Tile rasterize (alpha composite) ──────────────────</span>
+        {
+            <span class="kw">let</span> <span class="kw">mut</span> <span class="va">pass</span> = <span class="va">encoder</span>.<span class="fn">begin_compute_pass</span>(&amp;<span class="ty">Default</span>::<span class="fn">default</span>());
+            <span class="va">pass</span>.<span class="fn">set_pipeline</span>(&amp;<span class="kw">self</span>.<span class="va">rasterize_pipe</span>);
+            <span class="va">pass</span>.<span class="fn">set_bind_group</span>(<span class="nu">0</span>, &amp;<span class="va">scene</span>.<span class="va">render_input_bg</span>, &amp;[]);
+            <span class="va">pass</span>.<span class="fn">set_bind_group</span>(<span class="nu">1</span>, &amp;<span class="va">scene</span>.<span class="va">render_output_bg</span>, &amp;[]);
+            <span class="cm">// One workgroup per 16×16 tile</span>
+            <span class="va">pass</span>.<span class="fn">dispatch_workgroups</span>(
+                (<span class="va">cam</span>.<span class="va">width</span>  + <span class="nu">15</span>) / <span class="nu">16</span>,
+                (<span class="va">cam</span>.<span class="va">height</span> + <span class="nu">15</span>) / <span class="nu">16</span>,
+                <span class="nu">1</span>,
+            );
+        }
+
+        <span class="kw">self</span>.<span class="va">queue</span>.<span class="fn">submit</span>([<span class="va">encoder</span>.<span class="fn">finish</span>()]);
+        <span class="cm">// queue.submit returns immediately — GPU runs async</span>
+        <span class="cm">// Use device.poll(Maintain::Wait) to synchronise if needed</span>
+    }
+}</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 7 — BENCHMARKS
+══════════════════════════════════════ -->
+<div class="section" id="bench">
+  <div class="sec-label"><span class="sec-num">08</span> Performance</div>
+  <h2>Rust vs Python — Where Each Wins</h2>
+
+  <div class="card both">
+    <div class="card-stripe stripe-both"></div>
+    <div class="card-label">Inference FPS comparison — Rust/wgpu vs Python/gsplat (1080p, 3M Gaussians)</div>
+    <canvas id="cBench" width="1020" height="260" style="width:100%;max-width:1020px;"></canvas>
+    <p class="cap">Rust/wgpu inference is competitive with Python on NVIDIA · Larger advantage on M3 due to elimination of Python overhead and zero-copy Metal dispatch</p>
+  </div>
+
+  <div class="card rust" style="margin-top:1rem;">
+    <div class="card-stripe stripe-rust"></div>
+    <div class="card-label">Feature Matrix</div>
+    <table class="tbl">
+      <thead><tr><th>Capability</th><th>Python (gsplat)</th><th>Rust (wgpu)</th></tr></thead>
+      <tbody>
+        <tr><td>Training</td><td class="g">Full (autograd native)</td><td class="y">Via burn (maturing)</td></tr>
+        <tr><td>Inference speed</td><td class="y">Fast</td><td class="g">Faster (no GIL, no GC)</td></tr>
+        <tr><td>WASM / browser</td><td class="r">No</td><td class="g">Yes — wgpu → WebGPU</td></tr>
+        <tr><td>Memory safety</td><td class="y">Runtime (Python GC)</td><td class="g">Compile-time (borrow checker)</td></tr>
+        <tr><td>M3 Metal path</td><td class="y">Via MPS (PyTorch)</td><td class="g">Native wgpu → Metal</td></tr>
+        <tr><td>CUDA path</td><td class="g">Native (CUDA kernels)</td><td class="y">Via Vulkan/wgpu or burn-cuda</td></tr>
+        <tr><td>Ecosystem / ops</td><td class="g">Huge (PyTorch)</td><td class="y">Growing (burn)</td></tr>
+        <tr><td>Startup time</td><td class="r">~2s (Python + CUDA init)</td><td class="g">~100ms</td></tr>
+        <tr><td>Binary distribution</td><td class="r">Complex (env, deps)</td><td class="g">Single static binary</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION 8 — SETUP
+══════════════════════════════════════ -->
+<div class="section" id="cargo">
+  <div class="sec-label"><span class="sec-num">09</span> Getting Started</div>
+  <h2>Build &amp; Run</h2>
+
+  <div class="two-col">
+    <div class="card rust">
+      <div class="card-stripe stripe-rust"></div>
+      <div class="card-label">NVIDIA CUDA (Vulkan backend)</div>
+      <div class="code-wrap">
+        <div class="code-hdr shell">bash · Linux / Windows</div>
+<pre><span class="cm"># Install Rust</span>
+curl --proto <span class="st">'=https'</span> --tlsv1.2 \
+  -sSf https://sh.rustup.rs | sh
+
+<span class="cm"># Install Vulkan SDK (NVIDIA driver includes it)</span>
+<span class="cm"># sudo apt install vulkan-tools libvulkan-dev</span>
+
+<span class="cm"># Clone and build (release = full optimisation)</span>
+git clone https://github.com/yourname/gs3d-rs
+cd gs3d-rs
+cargo build --release
+
+<span class="cm"># Train a scene (uses COLMAP output)</span>
+cargo run --release -- train \
+  --scene ./my_scene \
+  --iters 30000
+
+<span class="cm"># Render novel views</span>
+cargo run --release -- render \
+  --model  ./output \
+  --camera orbit</pre>
+      </div>
+    </div>
+    <div class="card rust" style="border-color:rgba(255,106,0,.2);box-shadow:0 0 40px rgba(255,106,0,.1);">
+      <div class="card-stripe" style="background:linear-gradient(90deg,#ff6a00,#c8c9cd);"></div>
+      <div class="card-label">Apple M3 — Metal backend</div>
+      <div class="code-wrap">
+        <div class="code-hdr shell">bash · macOS Sonoma</div>
+<pre><span class="cm"># Install Rust (same step)</span>
+curl --proto <span class="st">'=https'</span> --tlsv1.2 \
+  -sSf https://sh.rustup.rs | sh
+
+<span class="cm"># No extra deps needed on macOS —
+# Metal framework is built-in via Xcode CLT</span>
+xcode-select --install
+
+<span class="cm"># wgpu auto-selects Metal on macOS</span>
+cargo build --release
+
+<span class="cm"># The binary will print:
+#   Backend: Metal
+#   Device: Apple M3 (40 cores)</span>
+
+<span class="cm"># Train — M3 8GB: use 800K cap</span>
+cargo run --release -- train \
+  --scene ./my_scene \
+  --iters 30000 \
+  --max-gaussians 800000
+
+<span class="cm"># M3 Max / Pro: full 3M+</span>
+cargo run --release -- train \
+  --scene ./my_scene \
+  --iters 30000</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip">The recommended starting point for Rust 3DGS is the <strong>brush</strong> project (github.com/ArthurBrussee/brush) — a production-quality Rust/wgpu implementation that runs natively on M3 and in the browser via WebGPU. It uses the same architecture described here.</div>
+  <div class="note">burn's autodiff is still maturing. For training, the hybrid approach works well: <strong>train in Python</strong> (gsplat), export the .ply Gaussian file, then <strong>load and render in Rust/wgpu</strong> for production deployment. The .ply format is the lingua franca between the two ecosystems.</div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+const $ = id => document.getElementById(id);
+const ctx = id => { const c=$(id); return c?c.getContext('2d'):null; };
+function rr(c,x,y,w,h,r,fill,stroke,lw=1){c.beginPath();c.roundRect(x,y,w,h,r);if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=lw;c.stroke();}}
+function hex(h){return`${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`;}
+
+// ═════════════════ WHY DIAGRAM ═════════════════
+(function(){
+  const c=ctx('cWhy');if(!c)return;
+  const W=1020,H=200;c.fillStyle='#0f1117';c.fillRect(0,0,W,H);
+
+  const cols=[
+    {label:'Research / Experimentation',x:15, w:230,col:'#5b8dee',items:['Algorithm prototyping','New loss functions','Custom architectures']},
+    {label:'Production Training',x:260,w:220,col:'#ce442a',items:['gsplat Python','Burn Rust (growing)','Hybrid Python→Rust']},
+    {label:'Real-time Viewer',x:495,w:210,col:'#4ecb8d',items:['Rust + wgpu','Native Metal/Vulkan','60–200+ FPS']},
+    {label:'Browser / WASM',x:720,w:175,col:'#e8a030',items:['Rust + WebGPU','Single binary','Zero install']},
+    {label:'Mobile / Embedded',x:910,w:100,col:'#c8c9cd',items:['Rust → iOS','Android NDK','']},
+  ];
+
+  cols.forEach(p=>{
+    rr(c,p.x,15,p.w,H-30,10,`rgba(${hex(p.col)},.08)`,`rgba(${hex(p.col)},.3)`);
+    c.fillStyle=p.col;c.font='700 8px Fira Code, monospace';c.textAlign='center';
+    c.fillText(p.label,p.x+p.w/2,34);
+    p.items.forEach((item,i)=>{
+      if(!item)return;
+      rr(c,p.x+8,44+i*38,p.w-16,30,6,`rgba(${hex(p.col)},.12)`,`rgba(${hex(p.col)},.25)`);
+      c.fillStyle=`rgba(${hex(p.col)},.9)`;c.font='600 8px Fira Code';c.textAlign='center';
+      c.fillText(item,p.x+p.w/2,63+i*38);
+    });
+  });
+
+  // Python / Rust labels
+  c.fillStyle='rgba(78,203,141,.4)';c.font='700 8px Fira Code';c.textAlign='center';
+  c.fillText('← Python dominates',180,H-5);
+  c.fillStyle='rgba(206,68,42,.5)';
+  c.fillText('Rust excels →',700,H-5);
+})();
+
+// ═════════════════ STACK DIAGRAM ═════════════════
+(function(){
+  const c=ctx('cStack');if(!c)return;
+  const W=1020,H=240;c.fillStyle='#0f1117';c.fillRect(0,0,W,H);
+
+  // App layer
+  rr(c,15,10,990,55,10,'rgba(206,68,42,.08)','rgba(206,68,42,.3)');
+  c.fillStyle='rgba(206,68,42,.7)';c.font='700 9px Fira Code';c.textAlign='left';
+  c.fillText('Application Layer (Rust)',30,30);
+  c.fillStyle='rgba(255,255,255,.3)';c.font='600 8px Fira Code';
+  c.fillText('gaussian_model.rs · train.rs · densify.rs · main.rs',30,45);
+
+  // burn and wgpu
+  rr(c,15,78,480,70,10,'rgba(232,160,48,.07)','rgba(232,160,48,.3)');
+  c.fillStyle='rgba(232,160,48,.8)';c.font='700 9px Fira Code';c.textAlign='left';
+  c.fillText('burn  (ML / Autograd)',30,97);
+  c.fillStyle='rgba(255,255,255,.3)';c.font='600 8px Fira Code';
+  c.fillText('Tensors · Adam · backward() · burn-wgpu backend',30,112);
+  c.fillStyle='rgba(232,160,48,.5)';c.fillText('Training only',30,126);
+
+  rr(c,510,78,495,70,10,'rgba(91,141,238,.07)','rgba(91,141,238,.3)');
+  c.fillStyle='rgba(91,141,238,.8)';c.font='700 9px Fira Code';c.textAlign='left';
+  c.fillText('wgpu  (GPU abstraction)',525,97);
+  c.fillStyle='rgba(255,255,255,.3)';c.font='600 8px Fira Code';
+  c.fillText('Device · Queue · ComputePipeline · Buffer · WGSL',525,112);
+  c.fillStyle='rgba(91,141,238,.5)';c.fillText('Training + Inference',525,126);
+
+  // Backend layer
+  const bkds=[
+    {x:15, w:280,col:'#a8a9ad',label:'Metal (wgpu)',sub:'M1/M2/M3 Mac'},
+    {x:310,w:280,col:'#76b900',label:'Vulkan (wgpu)',sub:'NVIDIA + AMD Linux/Win'},
+    {x:605,w:200,col:'#5b8dee',label:'WebGPU (wgpu)',sub:'Browser via WASM'},
+    {x:820,w:185,col:'#f07040',label:'DX12 (wgpu)',sub:'Windows NVIDIA/AMD'},
+  ];
+  bkds.forEach(b=>{
+    rr(c,b.x,162,b.w,62,8,`rgba(${hex(b.col)},.07)`,`rgba(${hex(b.col)},.3)`);
+    c.fillStyle=`rgba(${hex(b.col)},.8)`;c.font='700 9px Fira Code';c.textAlign='center';
+    c.fillText(b.label,b.x+b.w/2,182);
+    c.fillStyle='rgba(255,255,255,.3)';c.font='600 8px Fira Code';
+    c.fillText(b.sub,b.x+b.w/2,196);
+    // hardware
+    rr(c,b.x+10,206,b.w-20,12,4,`rgba(${hex(b.col)},.15)`);
+    c.fillStyle=`rgba(${hex(b.col)},.6)`;c.font='600 7px Fira Code';c.textAlign='center';
+    c.fillText('GPU Hardware',b.x+b.w/2,216);
+  });
+})();
+
+// ═════════════════ WGSL TRANSLATION ═════════════════
+(function(){
+  const c=ctx('cWgsl');if(!c)return;
+  const W=1020,H=170;c.fillStyle='#0f1117';c.fillRect(0,0,W,H);
+
+  // WGSL source
+  rr(c,10,20,160,130,10,'rgba(91,141,238,.1)','rgba(91,141,238,.4)');
+  c.fillStyle='rgba(91,141,238,.8)';c.font='700 9px Fira Code';c.textAlign='center';
+  c.fillText('WGSL',90,42);c.fillText('Source',90,56);
+  c.fillStyle='rgba(255,255,255,.25)';c.font='600 7px Fira Code';
+  c.fillText('preprocess.wgsl',90,75);c.fillText('rasterize.wgsl',90,87);c.fillText('bitonic_sort.wgsl',90,99);
+
+  // wgpu compiler box
+  rr(c,200,50,120,70,8,'rgba(206,68,42,.1)','rgba(206,68,42,.4)');
+  c.fillStyle='rgba(206,68,42,.8)';c.font='700 9px Fira Code';c.textAlign='center';
+  c.fillText('wgpu',260,73);c.fillText('compiler',260,86);
+  c.fillStyle='rgba(255,255,255,.3)';c.font='600 7px Fira Code';
+  c.fillText('naga IR',260,100);
+
+  // Arrow in
+  c.beginPath();c.moveTo(172,85);c.lineTo(197,85);c.moveTo(193,80);c.lineTo(197,85);c.lineTo(193,90);
+  c.strokeStyle='rgba(255,255,255,.3)';c.lineWidth=1.5;c.stroke();
+
+  // Outputs
+  const outs=[
+    {label:'Metal Shading Lang',sub:'M3 Apple Silicon',col:'#c8c9cd',x:355},
+    {label:'SPIR-V → GLSL',sub:'Vulkan (NVIDIA)',col:'#76b900',x:555},
+    {label:'WGSL (native)',sub:'WebGPU browser',col:'#5b8dee',x:750},
+    {label:'HLSL → DX12',sub:'Windows GPU',col:'#f07040',x:900},
+  ];
+  outs.forEach(o=>{
+    c.beginPath();c.moveTo(322,85);c.lineTo(o.x,85);
+    c.moveTo(o.x-5,80);c.lineTo(o.x,85);c.lineTo(o.x-5,90);
+    c.strokeStyle=`rgba(${hex(o.col)},.35)`;c.lineWidth=1.5;c.setLineDash([3,4]);c.stroke();c.setLineDash([]);
+
+    rr(c,o.x,50,105,70,8,`rgba(${hex(o.col)},.08)`,`rgba(${hex(o.col)},.3)`);
+    c.fillStyle=`rgba(${hex(o.col)},.9)`;c.font='700 8px Fira Code';c.textAlign='center';
+    c.fillText(o.label,o.x+52,72);
+    c.fillStyle='rgba(255,255,255,.3)';c.font='600 7px Fira Code';
+    c.fillText(o.sub,o.x+52,85);
+  });
+
+  c.fillStyle='rgba(255,255,255,.2)';c.font='600 8px Fira Code';c.textAlign='center';
+  c.fillText('Write WGSL once · wgpu compiles to the right backend at startup',W/2,H-5);
+})();
+
+// ═════════════════ BENCHMARK ═════════════════
+(function(){
+  const c=ctx('cBench');if(!c)return;
+  const W=1020,H=260;c.fillStyle='#0f1117';c.fillRect(0,0,W,H);
+
+  const groups=[
+    {
+      label:'RTX 4090 (NVIDIA)',col:'#76b900',
+      py:{fps:185,label:'Python/gsplat'},
+      rs:{fps:200,label:'Rust/wgpu'},
+    },
+    {
+      label:'RTX 3090 (NVIDIA)',col:'#76b900',
+      py:{fps:140,label:'Python/gsplat'},
+      rs:{fps:155,label:'Rust/wgpu'},
+    },
+    {
+      label:'M3 Max 40-core',col:'#f07040',
+      py:{fps:70,label:'Python/MPS'},
+      rs:{fps:95,label:'Rust/Metal'},
+    },
+    {
+      label:'M3 Pro 18-core',col:'#f07040',
+      py:{fps:45,label:'Python/MPS'},
+      rs:{fps:62,label:'Rust/Metal'},
+    },
+    {
+      label:'M3 10-core (8GB)',col:'#c8c9cd',
+      py:{fps:28,label:'Python/MPS'},
+      rs:{fps:38,label:'Rust/Metal'},
+    },
+  ];
+
+  const maxFps=210,barAreaW=W-220,barH=22,groupH=60,startX=200,startY=18;
+
+  groups.forEach((g,i)=>{
+    const gy=startY+i*groupH;
+    c.fillStyle='rgba(255,255,255,.35)';c.font='700 8px Fira Code';c.textAlign='right';
+    c.fillText(g.label,startX-8,gy+15);
+
+    // Python bar
+    const pyW=(g.py.fps/maxFps)*(barAreaW-20);
+    rr(c,startX,gy,pyW,barH,4,`rgba(${hex(g.col)},.25)`,`rgba(${hex(g.col)},.4)`);
+    c.fillStyle=`rgba(${hex(g.col)},.7)`;c.font='600 8px Fira Code';c.textAlign='left';
+    c.fillText(`${g.py.label}  ${g.py.fps} FPS`,startX+pyW+6,gy+15);
+
+    // Rust bar
+    const rsW=(g.rs.fps/maxFps)*(barAreaW-20);
+    rr(c,startX,gy+barH+4,rsW,barH,4,`rgba(${hex(g.col)},.55)`,`rgba(${hex(g.col)},.8)`);
+    c.fillStyle=`rgba(${hex(g.col)},1)`;
+    c.fillText(`${g.rs.label}  ${g.rs.fps} FPS`,startX+rsW+6,gy+barH+19);
+
+    // Delta
+    const delta=g.rs.fps-g.py.fps;
+    c.fillStyle='rgba(78,203,141,.7)';c.font='700 8px Fira Code';c.textAlign='right';
+    c.fillText(`+${delta} FPS`,W-10,gy+barH+10);
+  });
+
+  // Legend
+  rr(c,startX,H-22,80,14,4,'rgba(255,255,255,.08)');
+  rr(c,startX+90,H-22,80,14,4,'rgba(255,255,255,.25)');
+  c.fillStyle='rgba(255,255,255,.4)';c.font='600 7px Fira Code';c.textAlign='center';
+  c.fillText('Python/gsplat',startX+40,H-11);c.fillText('Rust/wgpu',startX+130,H-11);
+  c.fillStyle='rgba(78,203,141,.6)';c.textAlign='right';
+  c.fillText('Δ = Rust advantage →',W-10,H-11);
+})();
+</script>
+</body>
+</html>

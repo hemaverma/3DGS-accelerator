@@ -1,0 +1,157 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug unit tests in library 'three_dgs_processor'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable '3dgs-processor' .env file",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=3dgs-processor"
+                ]
+            },
+            "args": [],
+            "envFile": "${workspaceFolder}/.env.debug",
+            "cwd": "${workspaceFolder}/"
+        },
+        {
+            "name": "Debug unit tests in executable '3dgs-processor'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=3dgs-processor"
+                ]
+            }
+        },
+        {
+            "name": "Debug example 'colmap_integration'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=colmap_integration"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in example 'colmap_integration'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--example=colmap_integration"
+                ]
+            }
+        },
+        {
+            "name": "Debug example 'test_3dgs_cpp_backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=test_3dgs_cpp_backend"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in example 'test_3dgs_cpp_backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--example=test_3dgs_cpp_backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug example 'test_gsplat_backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=test_gsplat_backend"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in example 'test_gsplat_backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--example=test_gsplat_backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug example 'test_metrics'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--example=test_metrics"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in example 'test_metrics'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--example=test_metrics"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'e2e'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=e2e"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'integration'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=integration"
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,150 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  RUST_VERSION: 1.75
+  CARGO_TERM_COLOR: always
+
+jobs:
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          profile: minimal
+          override: true
+          components: rustfmt, clippy
+      
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-e2e-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-e2e-
+            ${{ runner.os }}-cargo-
+      
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+      
+      - name: Check Docker
+        run: |
+          docker --version
+          docker ps
+      
+      - name: Generate test videos
+        run: |
+          ./scripts/generate-test-videos.sh
+          ls -lh testdata/sample_scene/
+      
+      - name: Build Docker image
+        run: |
+          docker build -t 3dgs-processor:test .
+      
+      - name: Run E2E tests
+        run: |
+          cargo test --test e2e -- --test-threads=1 --nocapture
+        env:
+          RUST_LOG: debug
+          RUST_BACKTRACE: 1
+      
+      - name: Cleanup Docker containers
+        if: always()
+        run: |
+          docker ps -aq --filter "name=3dgs-e2e-test" | xargs -r docker stop
+          docker ps -aq --filter "name=azurite-test" | xargs -r docker stop
+      
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-test-artifacts
+          path: |
+            testdata/
+            target/debug/
+          retention-days: 7
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          profile: minimal
+          override: true
+      
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      
+      - name: Generate test videos
+        run: ./scripts/generate-test-videos.sh
+      
+      - name: Run integration tests
+        run: cargo test --test integration
+        env:
+          RUST_LOG: info
+
+  docker-build:
+    name: Docker Multi-Arch Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build multi-arch image (test only)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: 3dgs-processor:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

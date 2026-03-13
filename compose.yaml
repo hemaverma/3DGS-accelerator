@@ -1,0 +1,40 @@
+version: '3.8'
+
+# need to precreate
+# ./output/data/input
+# ./output/data/processed
+# ./output/data/error
+# ./output/data/output
+# rm -rf ./output
+# mkdir -p ./output/data/input ./output/data/processed ./output/data/error ./output/data/output
+# mkdir -p ./output/data/input/my_scene && cp testdata/sample_scene/view*.mp4 ./output/data/input/my_scene 
+
+services:
+  3dgs-processor:
+    image: 3dgs-processor:latest
+    container_name: 3dgs-processor
+    restart: unless-stopped
+    volumes:
+      - ./output/data:/data
+      - ./container-test/config.1.yaml:/app/config.yaml:ro
+      - ./output/tmp:/tmp/3dgs-work
+    environment:
+      CONFIG_PATH: /app/config.yaml
+      INPUT_PATH: /data/input
+      OUTPUT_PATH: /data/output
+      PROCESSED_PATH: /data/processed
+      ERROR_PATH: /data/error
+      BACKEND: gaussian-splatting
+      TEMP_PATH: /tmp/3dgs-work
+      LOG_LEVEL: debug
+      HEALTH_CHECK_ENABLED: "true"
+      HEALTH_CHECK_PORT: 8080
+      UPLOAD_STABILITY_TIMEOUT_SECS: 5
+      MAX_RETRIES: 1
+    ports:
+      - "8080:8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

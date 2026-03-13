@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DGS — Deep Dive: The Gaussian Blobs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+  :root {
+    --bg:#06080f; --surface:#0d1220; --surface2:#131929; --surface3:#1a2235;
+    --accent:#00e5ff; --accent2:#7c4dff; --accent3:#ff6b6b; --accent4:#69ff47; --accent5:#ffd740;
+    --text:#e8eaf6; --muted:#8892aa; --border:rgba(255,255,255,0.07);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden;}
+  .container{max-width:980px;margin:0 auto;padding:2rem 1.5rem;}
+  header{padding:2.5rem 1.5rem 1.5rem;text-align:center;border-bottom:1px solid var(--border);}
+  .tag{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;display:block;margin-bottom:.75rem;}
+  h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;background:linear-gradient(135deg,#fff 0%,var(--accent) 60%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .subtitle{color:var(--muted);margin-top:.5rem;font-size:.95rem;}
+  h2{font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:.6rem;}
+  h3{font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:.4rem;font-family:'Space Mono',monospace;}
+  p{color:var(--muted);line-height:1.75;font-size:.92rem;margin-bottom:.65rem;}
+  .section{margin-bottom:3.5rem;}
+  .section-label{font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.25em;color:var(--accent2);text-transform:uppercase;margin-bottom:.4rem;display:block;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin:1.25rem 0;position:relative;overflow:hidden;}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .card-title{font-family:'Space Mono',monospace;font-size:.65rem;letter-spacing:.15em;color:var(--accent);text-transform:uppercase;margin-bottom:1rem;}
+  canvas{display:block;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;}
+  .three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+  .four-col{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;}
+  .prop-chip{background:var(--surface2);border-radius:8px;padding:.6rem .9rem;border-left:3px solid var(--accent);margin-bottom:.5rem;}
+  .prop-chip .name{font-family:'Space Mono',monospace;font-size:.68rem;color:#fff;font-weight:700;margin-bottom:.2rem;}
+  .prop-chip .val{font-size:.78rem;color:var(--muted);line-height:1.5;}
+  .highlight{color:#fff;font-weight:600;}
+  .mono{font-family:'Space Mono',monospace;font-size:.8rem;color:var(--accent5);}
+  .caption{font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);text-align:center;margin-top:.5rem;letter-spacing:.04em;}
+  .inline-tag{display:inline-block;background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.3);border-radius:4px;padding:.1rem .4rem;font-family:'Space Mono',monospace;font-size:.68rem;color:var(--accent);}
+  /* slider */
+  .slider-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;}
+  .slider-row label{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);min-width:80px;}
+  input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer;}
+  .slider-val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--accent5);min-width:36px;text-align:right;}
+  .interactive-note{font-family:'Space Mono',monospace;font-size:.6rem;color:rgba(105,255,71,.6);letter-spacing:.05em;margin-bottom:.75rem;}
+  @media(max-width:620px){.two-col,.three-col,.four-col{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header>
+  <span class="tag">Deep Dive · Stage 1.5 · The Gaussian Blobs</span>
+  <h1>Everything About the Blobs</h1>
+  <p class="subtitle">Five properties. Each one doing a specific job.</p>
+</header>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════
+     SECTION 0 — WHY A GAUSSIAN SHAPE?
+═══════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-label">First Principles</span>
+  <h2>Why a Gaussian? Why Not a Box, or a Sphere?</h2>
+  <p>A Gaussian has a magical property: it's <span class="highlight">infinitely smooth and differentiable everywhere</span>. That means gradients always flow cleanly through it during training — no sharp edges to cause instability. It also naturally fades to zero at its edges, so blobs blend into each other seamlessly.</p>
+
+  <div class="card">
+    <div class="card-title">Shape Comparison — Why Gaussians Win</div>
+    <canvas id="shapeCompare" width="900" height="200" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">Voxel grid (left) has sharp edges and bad gradients. Triangle mesh (center) needs topology. Gaussian (right) is smooth, differentiable, and blends naturally.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">The 1D Gaussian — Intuition First</div>
+    <canvas id="gaussian1D" width="900" height="160" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">The bell curve. In 3D, this becomes an ellipsoid. The key parameters are μ (center) and σ (spread). High value at center, smoothly fading to zero at edges.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 1 — POSITION
+═══════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-label">Property 01 / 05</span>
+  <h2>Position — Where Is This Blob?</h2>
+  <p>The simplest property. Every Gaussian has a center point <span class="mono">μ = (x, y, z)</span> in 3D world space. During training, this coordinate gets nudged via gradient descent to move the blob toward where it "should" be.</p>
+  <p>Think of it as <span class="highlight">the blob's address in 3D space</span>. Millions of addresses, each slightly different.</p>
+
+  <div class="card">
+    <div class="card-title">Positions Build the Scene — Sparse to Dense</div>
+    <canvas id="positionBuild" width="900" height="200" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">100 Gaussians → 10K → 1M. Same positions, same scene. Density reveals detail.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 2 — SHAPE (COVARIANCE)
+═══════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-label">Property 02 / 05</span>
+  <h2>Shape — The Most Powerful Property</h2>
+  <p>This is what makes 3DGS exceptional. Each blob isn't just a sphere — it can be a <span class="highlight">thin flat disk, a long needle, a fat ball, or any ellipsoid in between</span>. This is encoded as a covariance matrix, but we can think of it as two things: <span class="mono">scale</span> (how big in each direction) and <span class="mono">rotation</span> (which way is it pointing).</p>
+  <p>A flat disk Gaussian can represent a wall surface. A thin needle Gaussian can represent a wire or edge. This adaptive shape is why 3DGS can represent scenes so efficiently.</p>
+
+  <div class="card">
+    <div class="card-title">The Shape Zoo — What a Gaussian Can Look Like</div>
+    <canvas id="shapeZoo" width="900" height="180" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">Same Gaussian, different scale + rotation parameters. Each is optimal for a different part of a scene.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Scale = 3 Numbers, Rotation = 3 Numbers → 6 total shape params</div>
+    <div class="two-col">
+      <div>
+        <canvas id="scaleDemo" width="400" height="200" style="width:100%;"></canvas>
+        <p class="caption">Scale (sx, sy, sz) stretches the blob along each axis</p>
+      </div>
+      <div>
+        <canvas id="rotateDemo" width="400" height="200" style="width:100%;"></canvas>
+        <p class="caption">Rotation orients the ellipsoid — crucial for matching surface geometry</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Why Not Just Use Spheres? — Efficiency Matters</div>
+    <canvas id="sphereVsEllipse" width="900" height="200" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">A flat wall needs ~1 large flat disk Gaussian vs ~200 spheres. Ellipsoids = massive efficiency gain.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 3 — OPACITY
+═══════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-label">Property 03 / 05</span>
+  <h2>Opacity — How Much Does This Blob Block?</h2>
+  <p>Every Gaussian has an opacity value <span class="mono">α ∈ [0, 1]</span>. Zero means totally transparent (invisible). One means fully solid. Most Gaussians end up somewhere in between.</p>
+  <p>This matters enormously for blending. <span class="highlight">Semi-transparent Gaussians let you represent fog, glass, hair, and fine details</span> that a solid mesh never could.</p>
+
+  <div class="card">
+    <div class="card-title">Opacity Spectrum — From Ghost to Solid</div>
+    <canvas id="opacitySpectrum" width="900" height="140" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">α=0.05 (near invisible) → α=0.3 → α=0.6 → α=1.0 (fully opaque)</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Opacity × Shape = Representing Fine Detail</div>
+    <canvas id="opacityDetail" width="900" height="180" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">Hair, fur, smoke, and foliage are all representable — impossible with hard surface meshes.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 4 — COLOR (SPHERICAL HARMONICS)
+═══════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-label">Property 04 / 05</span>
+  <h2>Color — Not Just RGB. View-Dependent Color.</h2>
+  <p>Here's the subtle genius: a Gaussian doesn't store a single RGB color. It stores <span class="highlight">spherical harmonic (SH) coefficients</span> — a compact encoding that lets the color <em>change based on the viewing angle</em>.</p>
+  <p>This captures specular highlights, iridescence, and any surface that looks different from different angles — just like real materials. The degree of SH controls how much the color can vary.</p>
+
+  <div class="card">
+    <div class="card-title">View-Dependent Color — Same Blob, Different Angles</div>
+    <canvas id="viewDependentColor" width="900" height="200" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">The same Gaussian appears blue from the left, teal from the front, green from the right — like a real specular surface.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Spherical Harmonics — Color as a Function on a Sphere</div>
+    <canvas id="shDiagram" width="900" height="200" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">Degree 0 = constant color (just RGB). Degree 1 = simple gradient. Degree 3 = complex view-dependent shading. 3DGS uses up to degree 3 (48 color coefficients per Gaussian).</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SECTION 5 — ALL TOGETHER
+═══════════════════════════════════════════ -->
+<div class="section">
+  <span class="section-label">Putting It All Together</span>
+  <h2>One Gaussian = 59 Numbers</h2>
+  <p>Every single blob in the scene is fully described by <span class="highlight">59 floating-point numbers</span>. All of them are optimized simultaneously during training.</p>
+
+  <div class="card">
+    <div class="card-title">The Full Parameter Budget Per Gaussian</div>
+    <canvas id="paramBudget" width="900" height="160" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">59 params × 3M Gaussians = ~177M numbers per scene. Each is independently learned.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Interactive — How Parameters Shape a Gaussian</div>
+    <p class="interactive-note">▶ DRAG THE SLIDERS to see how each parameter changes the blob in real time</p>
+    <div class="two-col">
+      <div>
+        <div class="slider-row"><label>Scale X</label><input type="range" id="slScaleX" min="5" max="90" value="55"><span class="slider-val" id="vScaleX">55</span></div>
+        <div class="slider-row"><label>Scale Y</label><input type="range" id="slScaleY" min="5" max="90" value="25"><span class="slider-val" id="vScaleY">25</span></div>
+        <div class="slider-row"><label>Rotation</label><input type="range" id="slRot" min="0" max="314" value="0"><span class="slider-val" id="vRot">0°</span></div>
+        <div class="slider-row"><label>Opacity</label><input type="range" id="slOpacity" min="1" max="100" value="70"><span class="slider-val" id="vOpacity">0.7</span></div>
+        <div class="slider-row"><label>Hue</label><input type="range" id="slHue" min="0" max="360" value="185"><span class="slider-val" id="vHue">185°</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:.5rem;">
+        <canvas id="interactiveGaussian" width="280" height="280"></canvas>
+        <p class="caption">Live Gaussian preview</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">From One Blob to a Scene — Scale of Representation</div>
+    <canvas id="scaleScene" width="900" height="220" style="width:100%;max-width:900px;"></canvas>
+    <p class="caption">1 blob (left) → 50 blobs (center-left) → 500 blobs → 3M blobs = photorealistic scene (right)</p>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════
+function getCtx(id){const c=document.getElementById(id);return c?c.getContext('2d'):null;}
+
+function hsl2rgb(h,s,l){
+  s/=100;l/=100;
+  const k=n=>(n+h/30)%12;
+  const a=s*Math.min(l,1-l);
+  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+  return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
+}
+
+function drawEllipseGaussian(cx, x, y, rx, ry, angle, r, g, b, alpha, edgeColor=null){
+  cx.save();
+  cx.translate(x,y);
+  cx.rotate(angle);
+  const maxR=Math.max(rx,ry);
+  const grad=cx.createRadialGradient(0,0,0,0,0,maxR);
+  grad.addColorStop(0,`rgba(${r},${g},${b},${alpha})`);
+  grad.addColorStop(0.5,`rgba(${r},${g},${b},${alpha*0.5})`);
+  grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  cx.scale(rx/maxR,ry/maxR);
+  cx.beginPath();cx.arc(0,0,maxR,0,Math.PI*2);
+  cx.fillStyle=grad;cx.fill();
+  if(edgeColor){
+    cx.beginPath();cx.arc(0,0,maxR,0,Math.PI*2);
+    cx.strokeStyle=edgeColor;cx.lineWidth=1/Math.min(rx/maxR,ry/maxR);cx.stroke();
+  }
+  cx.restore();
+}
+
+// ═══════════════════════════════════════
+// SHAPE COMPARE
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('shapeCompare');if(!c)return;
+  const W=900,H=200;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+
+  // VOXEL GRID
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(10,10,255,H-20);
+  c.strokeStyle='rgba(255,107,107,0.2)';c.strokeRect(10,10,255,H-20);
+  const gridSize=18,startX=35,startY=30;
+  for(let gx=0;gx<9;gx++)for(let gy=0;gy<7;gy++){
+    const inBlob=(Math.pow(gx-4,2)/16+Math.pow(gy-3,2)/9)<1;
+    if(inBlob){
+      const bx=startX+gx*gridSize,by=startY+gy*gridSize;
+      c.fillStyle='rgba(255,107,107,0.4)';
+      c.fillRect(bx,by,gridSize-1,gridSize-1);
+      c.strokeStyle='rgba(255,107,107,0.6)';
+      c.strokeRect(bx,by,gridSize-1,gridSize-1);
+    }
+  }
+  c.fillStyle='rgba(255,107,107,0.6)';c.font='700 9px Space Mono';c.textAlign='center';
+  c.fillText('VOXEL GRID',137,H-16);
+  c.fillStyle='rgba(255,107,107,0.4)';c.font='600 8px Space Mono';
+  c.fillText('Sharp edges · Bad gradients',137,H-6);
+
+  // MESH
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(320,10,255,H-20);
+  c.strokeStyle='rgba(255,215,64,0.2)';c.strokeRect(320,10,255,H-20);
+  const cx2=448,cy2=95,pts=[];
+  for(let i=0;i<20;i++){
+    const a=(i/20)*Math.PI*2;
+    pts.push([cx2+Math.cos(a)*55+Math.sin(a*2)*8,cy2+Math.sin(a)*35+Math.cos(a*3)*5]);
+  }
+  c.beginPath();c.moveTo(pts[0][0],pts[0][1]);
+  pts.forEach(p=>c.lineTo(p[0],p[1]));c.closePath();
+  c.fillStyle='rgba(255,215,64,0.1)';c.fill();
+  c.strokeStyle='rgba(255,215,64,0.5)';c.lineWidth=1;c.stroke();
+  // mesh lines
+  for(let i=0;i<pts.length;i+=2){
+    const j=(i+7)%pts.length;
+    c.beginPath();c.moveTo(pts[i][0],pts[i][1]);c.lineTo(pts[j][0],pts[j][1]);
+    c.strokeStyle='rgba(255,215,64,0.2)';c.stroke();
+  }
+  c.fillStyle='rgba(255,215,64,0.6)';c.font='700 9px Space Mono';c.textAlign='center';
+  c.fillText('TRIANGLE MESH',448,H-16);
+  c.fillStyle='rgba(255,215,64,0.4)';c.font='600 8px Space Mono';
+  c.fillText('Needs topology · Hard to optimize',448,H-6);
+
+  // GAUSSIAN
+  c.fillStyle='rgba(255,255,255,0.03)';c.fillRect(630,10,255,H-20);
+  c.strokeStyle='rgba(0,229,255,0.2)';c.strokeRect(630,10,255,H-20);
+  drawEllipseGaussian(c,757,95,65,35,-0.3,0,229,255,0.7);
+  drawEllipseGaussian(c,757,95,65,35,-0.3,0,229,255,0.3);
+  // smooth gradient rings
+  for(let r=10;r<=60;r+=10){
+    c.save();c.translate(757,95);c.rotate(-0.3);
+    c.scale(1,35/65);c.beginPath();c.arc(0,0,r,0,Math.PI*2);
+    c.strokeStyle=`rgba(0,229,255,${0.1*(1-r/65)})`;c.lineWidth=1;c.stroke();
+    c.restore();
+  }
+  c.fillStyle='rgba(0,229,255,0.7)';c.font='700 9px Space Mono';c.textAlign='center';
+  c.fillText('3D GAUSSIAN',757,H-16);
+  c.fillStyle='rgba(0,229,255,0.4)';c.font='600 8px Space Mono';
+  c.fillText('Smooth · Differentiable · Blendable',757,H-6);
+})();
+
+// ═══════════════════════════════════════
+// 1D GAUSSIAN
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('gaussian1D');if(!c)return;
+  const W=900,H=160;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+
+  const mu1=220,sigma1=60,mu2=580,sigma2=30,mu3=780,sigma3=80;
+  const gaussVal=(x,mu,sigma)=>Math.exp(-0.5*Math.pow((x-mu)/sigma,2));
+
+  // Draw three gaussians
+  [[mu1,sigma1,[0,229,255],'μ=220, σ=60 (wide)'],[mu2,sigma2,[124,77,255],'μ=580, σ=30 (narrow)'],[mu3,sigma3,[105,255,71],'μ=780, σ=80 (wide)']].forEach(([mu,sigma,col,label])=>{
+    // Fill
+    c.beginPath();c.moveTo(0,H-30);
+    for(let x=0;x<W;x++){
+      const y=gaussVal(x,mu,sigma);
+      c.lineTo(x,H-30-y*(H-50));
+    }
+    c.lineTo(W,H-30);c.closePath();
+    c.fillStyle=`rgba(${col.join(',')},0.15)`;c.fill();
+    // Line
+    c.beginPath();c.moveTo(0,H-30);
+    for(let x=0;x<W;x++){
+      const y=gaussVal(x,mu,sigma);
+      c.lineTo(x,H-30-y*(H-50));
+    }
+    c.strokeStyle=`rgba(${col.join(',')},0.8)`;c.lineWidth=2;c.stroke();
+    // Center line
+    c.beginPath();c.moveTo(mu,30);c.lineTo(mu,H-30);
+    c.strokeStyle=`rgba(${col.join(',')},0.3)`;c.lineWidth=1;c.setLineDash([3,4]);c.stroke();c.setLineDash([]);
+    // σ bracket
+    c.beginPath();c.moveTo(mu-sigma,H-22);c.lineTo(mu+sigma,H-22);
+    c.strokeStyle=`rgba(${col.join(',')},0.5)`;c.lineWidth=1.5;c.stroke();
+    c.fillStyle=`rgba(${col.join(',')},0.7)`;c.font='600 8px Space Mono';c.textAlign='center';
+    c.fillText('σ',mu,H-10);
+  });
+
+  // Baseline
+  c.beginPath();c.moveTo(0,H-30);c.lineTo(W,H-30);
+  c.strokeStyle='rgba(255,255,255,0.1)';c.lineWidth=1;c.stroke();
+
+  c.fillStyle='rgba(255,255,255,0.5)';c.font='700 8px Space Mono';c.textAlign='left';
+  c.fillText('σ = spread (width)',20,20);
+  c.fillText('μ = center (position)',20,32);
+})();
+
+// ═══════════════════════════════════════
+// POSITION BUILD
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('positionBuild');if(!c)return;
+  const W=900,H=200;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+  const panels=[{x:10,w:250,n:18,label:'~100 Gaussians',sublabel:'Basic shape'},{x:325,w:250,n:60,label:'~10K Gaussians',sublabel:'Rough detail'},{x:640,w:250,n:160,label:'~1M Gaussians',sublabel:'Photorealistic'}];
+  // Smiley-face-like point distribution
+  function inScene(px,py,cx,cy){
+    const dx=px-cx,dy=py-cy;
+    // outer circle
+    if(Math.abs(Math.sqrt(dx*dx+dy*dy)-60)<8)return true;
+    // eyes
+    if(Math.sqrt(Math.pow(px-(cx-20),2)+Math.pow(py-(cy-20),2))<8)return true;
+    if(Math.sqrt(Math.pow(px-(cx+20),2)+Math.pow(py-(cy-20),2))<8)return true;
+    // mouth arc
+    if(dy>5&&Math.abs(Math.sqrt(dx*dx+(dy-10)*(dy-10))-30)<6&&Math.abs(dx)<28)return true;
+    return false;
+  }
+  panels.forEach(p=>{
+    c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(p.x,10,p.w,H-20);
+    c.strokeStyle='rgba(255,255,255,0.07)';c.strokeRect(p.x,10,p.w,H-20);
+    const panCx=p.x+p.w/2,panCy=95;
+    const rng=()=>Math.random();
+    // Place n gaussians in scene-shaped positions
+    for(let i=0;i<p.n*5;i++){
+      const angle=rng()*Math.PI*2;
+      const dist=rng();
+      let gx,gy,placed=false;
+      // Sample points biased toward scene features
+      for(let attempt=0;attempt<10;attempt++){
+        const tx=panCx+(rng()-.5)*160;
+        const ty=panCy+(rng()-.5)*140;
+        if(inScene(tx,ty,panCx,panCy)){gx=tx;gy=ty;placed=true;break;}
+      }
+      if(!placed)continue;
+      const sz=p.n<30?6:p.n<80?3.5:1.8;
+      const alpha=p.n<30?.55:p.n<80?.45:.35;
+      drawEllipseGaussian(c,gx,gy,sz*1.4,sz*.7,rng()*Math.PI,[0,229,255][0],[0,229,255][1],[0,229,255][2],alpha);
+    }
+    c.fillStyle='rgba(0,229,255,0.6)';c.font='700 9px Space Mono';c.textAlign='center';
+    c.fillText(p.label,panCx,H-16);
+    c.fillStyle='rgba(0,229,255,0.3)';c.font='600 8px Space Mono';
+    c.fillText(p.sublabel,panCx,H-6);
+  });
+})();
+
+// ═══════════════════════════════════════
+// SHAPE ZOO
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('shapeZoo');if(!c)return;
+  const W=900,H=180;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+  const shapes=[
+    {rx:55,ry:55,ang:0,   col:[0,229,255],  label:'Sphere',    use:'Background / sky'},
+    {rx:70,ry:12,ang:0,   col:[105,255,71], label:'Flat Disk', use:'Walls / floors'},
+    {rx:70,ry:12,ang:.9,  col:[124,77,255], label:'Tilted Disk',use:'Angled surfaces'},
+    {rx:8, ry:55,ang:0,   col:[255,215,64], label:'Needle',    use:'Wires / edges'},
+    {rx:8, ry:55,ang:.4,  col:[255,107,107],label:'Angled Needle',use:'Fine details'},
+    {rx:35,ry:20,ang:.6,  col:[0,229,255],  label:'Elongated', use:'Curved surfaces'},
+  ];
+  const spacing=W/shapes.length;
+  shapes.forEach((s,i)=>{
+    const cx=spacing*(i+.5),cy=88;
+    drawEllipseGaussian(c,cx,cy,s.rx,s.ry,s.ang,...s.col.map(v=>v),0.65);
+    // outline
+    c.save();c.translate(cx,cy);c.rotate(s.ang);
+    c.scale(s.rx/Math.max(s.rx,s.ry),s.ry/Math.max(s.rx,s.ry));
+    c.beginPath();c.arc(0,0,Math.max(s.rx,s.ry),0,Math.PI*2);
+    c.strokeStyle=`rgba(${s.col.join(',')},0.5)`;c.lineWidth=1;c.stroke();
+    c.restore();
+    c.fillStyle=`rgba(${s.col.join(',')},0.8)`;c.font='700 9px Space Mono';c.textAlign='center';
+    c.fillText(s.label,cx,H-22);
+    c.fillStyle='rgba(255,255,255,0.3)';c.font='600 8px Space Mono';
+    c.fillText(s.use,cx,H-11);
+  });
+})();
+
+// ═══════════════════════════════════════
+// SCALE DEMO
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('scaleDemo');if(!c)return;
+  c.fillStyle='#0d1220';c.fillRect(0,0,400,200);
+  const configs=[{rx:15,ry:15,label:'sx=sy=sz\n(sphere)'},{rx:55,ry:15,label:'sx>sy\n(wide)'},{rx:15,ry:55,label:'sy>sx\n(tall)'},{rx:55,ry:20,label:'sx>>sy\n(flat disk)'}];
+  configs.forEach((cfg,i)=>{
+    const cx=50+i*90,cy=90;
+    drawEllipseGaussian(c,cx,cy,cfg.rx,cfg.ry,0,0,229,255,0.6);
+    // axes
+    c.strokeStyle='rgba(124,77,255,0.5)';c.lineWidth=1;
+    c.beginPath();c.moveTo(cx-cfg.rx-4,cy);c.lineTo(cx+cfg.rx+4,cy);c.stroke();
+    c.beginPath();c.moveTo(cx,cy-cfg.ry-4);c.lineTo(cx,cy+cfg.ry+4);c.stroke();
+    c.fillStyle='rgba(0,229,255,0.7)';c.font='600 8px Space Mono';c.textAlign='center';
+    cfg.label.split('\n').forEach((line,li)=>c.fillText(line,cx,170+li*12));
+  });
+})();
+
+// ═══════════════════════════════════════
+// ROTATE DEMO
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('rotateDemo');if(!c)return;
+  c.fillStyle='#0d1220';c.fillRect(0,0,400,200);
+  const angles=[0,Math.PI/6,Math.PI/3,Math.PI/2];
+  angles.forEach((ang,i)=>{
+    const cx=50+i*90,cy=90;
+    drawEllipseGaussian(c,cx,cy,55,18,ang,124,77,255,0.6);
+    // rotation arc
+    c.save();c.translate(cx,cy);
+    c.beginPath();c.arc(0,0,25,0,ang);
+    c.strokeStyle='rgba(255,215,64,0.5)';c.lineWidth=1.5;c.stroke();
+    c.restore();
+    c.fillStyle='rgba(124,77,255,0.7)';c.font='600 8px Space Mono';c.textAlign='center';
+    c.fillText(`${Math.round(ang*180/Math.PI)}°`,cx,165);
+    c.fillText('rotation',cx,177);
+  });
+})();
+
+// ═══════════════════════════════════════
+// SPHERE vs ELLIPSE efficiency
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('sphereVsEllipse');if(!c)return;
+  const W=900,H=200;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+
+  // Left: many spheres to fill a wall
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(10,10,400,H-20);
+  c.strokeStyle='rgba(255,107,107,0.15)';c.strokeRect(10,10,400,H-20);
+  c.fillStyle='rgba(255,107,107,0.5)';c.font='700 9px Space Mono';c.textAlign='center';
+  c.fillText('SPHERES ONLY — many needed for flat surface',210,28);
+  let count=0;
+  for(let gx=0;gx<14;gx++)for(let gy=0;gy<5;gy++){
+    const bx=25+gx*26,by=42+gy*28;
+    if(bx<400){drawEllipseGaussian(c,bx,by,11,11,0,255,107,107,0.4);count++;}
+  }
+  c.fillStyle='rgba(255,107,107,0.4)';c.font='600 8px Space Mono';c.textAlign='center';
+  c.fillText(`~${count} spheres to cover this area`,210,H-8);
+
+  // Right: one flat disk
+  c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(470,10,420,H-20);
+  c.strokeStyle='rgba(0,229,255,0.15)';c.strokeRect(470,10,420,H-20);
+  c.fillStyle='rgba(0,229,255,0.5)';c.font='700 9px Space Mono';c.textAlign='center';
+  c.fillText('ONE FLAT DISK GAUSSIAN',680,28);
+  drawEllipseGaussian(c,680,100,170,22,0,0,229,255,0.55);
+  drawEllipseGaussian(c,680,100,170,22,0,0,229,255,0.3);
+  c.fillStyle='rgba(0,229,255,0.4)';c.font='600 8px Space Mono';c.textAlign='center';
+  c.fillText('1 Gaussian covers the same area',680,H-8);
+
+  // VS
+  c.fillStyle='rgba(255,255,255,0.4)';c.font='800 14px Syne';c.textAlign='center';
+  c.fillText('VS',436,105);
+})();
+
+// ═══════════════════════════════════════
+// OPACITY SPECTRUM
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('opacitySpectrum');if(!c)return;
+  const W=900,H=140;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+  const alphas=[0.04,0.15,0.35,0.6,0.8,1.0];
+  const labels=['α=0.04\n(ghost)','α=0.15\n(fog)','α=0.35\n(semi)','α=0.6\n(mostly\nopaque)','α=0.8\n(nearly\nsolid)','α=1.0\n(fully\nopaque)'];
+  const spacing=W/alphas.length;
+  alphas.forEach((a,i)=>{
+    const cx=spacing*(i+.5),cy=55;
+    // Checkerboard bg to show transparency
+    for(let gx=0;gx<4;gx++)for(let gy=0;gy<3;gy++){
+      c.fillStyle=((gx+gy)%2===0)?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.02)';
+      c.fillRect(cx-28+gx*14,cy-21+gy*14,14,14);
+    }
+    drawEllipseGaussian(c,cx,cy,28,28,0,0,229,255,a);
+    c.fillStyle='rgba(0,229,255,0.7)';c.font='600 8px Space Mono';c.textAlign='center';
+    labels[i].split('\n').forEach((line,li)=>c.fillText(line,cx,100+li*11));
+  });
+  // Arrow left to right
+  c.beginPath();c.moveTo(20,H-8);c.lineTo(W-20,H-8);
+  c.moveTo(W-25,H-13);c.lineTo(W-20,H-8);c.lineTo(W-25,H-3);
+  c.strokeStyle='rgba(255,255,255,0.2)';c.lineWidth=1;c.stroke();
+  c.fillStyle='rgba(255,255,255,0.3)';c.font='600 8px Space Mono';c.textAlign='center';
+  c.fillText('increasing opacity →',W/2,H-1);
+})();
+
+// ═══════════════════════════════════════
+// OPACITY DETAIL
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('opacityDetail');if(!c)return;
+  const W=900,H=180;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+  const panels=[
+    {x:10, w:200, title:'HAIR / FUR', draw:(px,py,pw)=>{
+      for(let i=0;i<40;i++){
+        const hx=px+pw/2+(Math.random()-.5)*60;
+        const hy=py+30+Math.random()*90;
+        drawEllipseGaussian(c,hx,hy,2.5,18+Math.random()*15,(.5-Math.random())*.8,255,200,150,.25+Math.random()*.25);
+      }
+    }},
+    {x:230,w:200,title:'SMOKE / FOG',draw:(px,py,pw)=>{
+      for(let i=0;i<20;i++){
+        const sx=px+pw/2+(Math.random()-.5)*70;
+        const sy=py+40+Math.random()*80;
+        drawEllipseGaussian(c,sx,sy,20+Math.random()*30,12+Math.random()*20,Math.random()*Math.PI,200,220,255,.06+Math.random()*.1);
+      }
+    }},
+    {x:450,w:200,title:'FOLIAGE',draw:(px,py,pw)=>{
+      for(let i=0;i<50;i++){
+        const lx=px+pw/2+(Math.random()-.5)*65;
+        const ly=py+25+Math.random()*100;
+        drawEllipseGaussian(c,lx,ly,8+Math.random()*12,4+Math.random()*8,Math.random()*Math.PI,80,200,80,.3+Math.random()*.4);
+      }
+    }},
+    {x:670,w:210,title:'GLASS / WATER',draw:(px,py,pw)=>{
+      // base shape
+      drawEllipseGaussian(c,px+pw/2,py+80,70,50,0,100,200,255,.08);
+      drawEllipseGaussian(c,px+pw/2,py+80,70,50,0,100,200,255,.12);
+      // highlight
+      drawEllipseGaussian(c,px+pw/2-20,py+55,18,8,-.3,255,255,255,.3);
+      drawEllipseGaussian(c,px+pw/2+30,py+70,8,3,.2,255,255,255,.4);
+    }},
+  ];
+  panels.forEach(p=>{
+    c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(p.x,10,p.w,H-20);
+    c.strokeStyle='rgba(255,255,255,0.07)';c.strokeRect(p.x,10,p.w,H-20);
+    p.draw(p.x,10,p.w);
+    c.fillStyle='rgba(255,255,255,0.5)';c.font='700 9px Space Mono';c.textAlign='center';
+    c.fillText(p.title,p.x+p.w/2,H-8);
+  });
+})();
+
+// ═══════════════════════════════════════
+// VIEW DEPENDENT COLOR
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('viewDependentColor');if(!c)return;
+  const W=900,H=200;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+  const blobCx=450,blobCy=95;
+
+  // Center blob
+  drawEllipseGaussian(c,blobCx,blobCy,55,30,0,0,229,255,0.6);
+  c.fillStyle='rgba(255,255,255,0.7)';c.font='700 9px Space Mono';c.textAlign='center';
+  c.fillText('ONE GAUSSIAN',blobCx,blobCy+50);
+  c.fillStyle='rgba(255,255,255,0.35)';c.font='600 8px Space Mono';
+  c.fillText('(stores SH coefficients)',blobCx,blobCy+62);
+
+  // Camera positions and their perceived colors
+  const cameras=[
+    {angle:Math.PI,col:[100,150,255],label:'View from left\n→ appears BLUE'},
+    {angle:Math.PI*.7,col:[50,200,220],label:'View from\ntop-left\n→ BLUE-TEAL'},
+    {angle:Math.PI*.3,col:[0,230,180],label:'View from\ntop-right\n→ TEAL-GREEN'},
+    {angle:0,col:[80,255,120],label:'View from right\n→ appears GREEN'},
+  ];
+  cameras.forEach(cam=>{
+    const dist=160;
+    const camX=blobCx+Math.cos(cam.angle)*dist;
+    const camY=blobCy+Math.sin(cam.angle)*(dist*.6);
+    // Camera icon
+    c.fillStyle=`rgba(${cam.col.join(',')},0.3)`;
+    c.fillRect(camX-10,camY-8,20,16);
+    c.strokeStyle=`rgba(${cam.col.join(',')},0.7)`;c.lineWidth=1.5;
+    c.strokeRect(camX-10,camY-8,20,16);
+    c.beginPath();c.arc(camX,camY,5,0,Math.PI*2);
+    c.fillStyle=`rgba(${cam.col.join(',')},0.6)`;c.fill();
+    // Ray line
+    c.beginPath();c.moveTo(camX,camY);c.lineTo(blobCx,blobCy);
+    c.strokeStyle=`rgba(${cam.col.join(',')},0.25)`;c.lineWidth=1;c.setLineDash([3,4]);c.stroke();c.setLineDash([]);
+    // Perceived color dot
+    c.beginPath();c.arc(blobCx+Math.cos(cam.angle)*70,blobCy+Math.sin(cam.angle)*43,10,0,Math.PI*2);
+    c.fillStyle=`rgba(${cam.col.join(',')},0.8)`;c.fill();
+    // Label
+    const lx=blobCx+Math.cos(cam.angle)*210,ly=blobCy+Math.sin(cam.angle)*(.55)*210;
+    c.fillStyle=`rgba(${cam.col.join(',')},0.8)`;c.font='600 8px Space Mono';c.textAlign='center';
+    cam.label.split('\n').forEach((line,li)=>c.fillText(line,lx,ly+(li-1)*11));
+  });
+})();
+
+// ═══════════════════════════════════════
+// SH DIAGRAM
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('shDiagram');if(!c)return;
+  const W=900,H=200;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+
+  const degrees=[
+    {deg:0,params:3, label:'Degree 0',sub:'3 params (RGB)\nFlat color only',col:[255,107,107]},
+    {deg:1,params:12,label:'Degree 1',sub:'12 params\nSimple gradient',col:[255,215,64]},
+    {deg:2,params:27,label:'Degree 2',sub:'27 params\nRicher shading',col:[105,255,71]},
+    {deg:3,params:48,label:'Degree 3 ★',sub:'48 params\nFull view-dependent\ncolor (3DGS default)',col:[0,229,255]},
+  ];
+
+  const spacing=W/degrees.length;
+  degrees.forEach((d,i)=>{
+    const cx=spacing*(i+.5),cy=85;
+    c.fillStyle='rgba(255,255,255,0.02)';
+    c.fillRect(spacing*i+5,10,spacing-10,H-20);
+    c.strokeStyle=`rgba(${d.col.join(',')},0.2)`;
+    c.strokeRect(spacing*i+5,10,spacing-10,H-20);
+
+    // Sphere with color variation
+    const numRings=Math.min(d.deg+1,4);
+    for(let ring=0;ring<numRings;ring++){
+      const hueShift=ring*(90/numRings);
+      const [r,g,b]=hsl2rgb((185+hueShift)%360,80,55);
+      const a=ring===0?.5:.3-ring*.05;
+      c.save();c.translate(cx,cy);c.rotate(ring*Math.PI/(numRings+1));
+      c.scale(1,.6);
+      c.beginPath();c.arc(0,0,38-ring*4,0,Math.PI*2);
+      c.fillStyle=`rgba(${r},${g},${b},${a})`;c.fill();
+      c.restore();
+    }
+
+    c.fillStyle=`rgba(${d.col.join(',')},0.8)`;c.font='700 9px Space Mono';c.textAlign='center';
+    c.fillText(d.label,cx,150);
+    c.fillStyle='rgba(255,255,255,0.35)';c.font='600 8px Space Mono';
+    d.sub.split('\n').forEach((line,li)=>c.fillText(line,cx,162+li*11));
+  });
+})();
+
+// ═══════════════════════════════════════
+// PARAM BUDGET
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('paramBudget');if(!c)return;
+  const W=900,H=160;
+  c.fillStyle='0d1220';c.fillRect(0,0,W,H);c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+
+  const params=[
+    {label:'Position\nμ (x,y,z)',n:3,col:[0,229,255]},
+    {label:'Scale\n(sx,sy,sz)',n:3,col:[124,77,255]},
+    {label:'Rotation\n(quaternion)',n:4,col:[255,215,64]},
+    {label:'Opacity\n(α)',n:1,col:[255,107,107]},
+    {label:'Color\n(SH deg-3)',n:48,col:[105,255,71]},
+  ];
+  const total=params.reduce((s,p)=>s+p.n,0);
+  let x=20;
+  params.forEach(p=>{
+    const barW=(p.n/total)*(W-40);
+    c.fillStyle=`rgba(${p.col.join(',')},0.2)`;
+    c.fillRect(x,20,barW-2,80);
+    c.strokeStyle=`rgba(${p.col.join(',')},0.5)`;c.lineWidth=1;
+    c.strokeRect(x,20,barW-2,80);
+    // Count
+    c.fillStyle=`rgba(${p.col.join(',')},0.9)`;c.font='700 '+(barW>60?'18':'12')+'px Syne';c.textAlign='center';
+    c.fillText(p.n,x+barW/2,65);
+    // Label
+    c.font='600 8px Space Mono';
+    p.label.split('\n').forEach((line,li)=>c.fillText(line,x+barW/2,108+li*11));
+    x+=barW;
+  });
+  // Total
+  c.fillStyle='rgba(255,255,255,0.6)';c.font='700 9px Space Mono';c.textAlign='right';
+  c.fillText('TOTAL: 59 parameters per Gaussian',W-20,H-5);
+})();
+
+// ═══════════════════════════════════════
+// INTERACTIVE GAUSSIAN
+// ═══════════════════════════════════════
+function drawInteractive(){
+  const c=getCtx('interactiveGaussian');if(!c)return;
+  const W=280,H=280;
+  c.clearRect(0,0,W,H);
+  c.fillStyle='#131929';c.fillRect(0,0,W,H);
+
+  const sx=parseInt(document.getElementById('slScaleX').value);
+  const sy=parseInt(document.getElementById('slScaleY').value);
+  const rot=parseInt(document.getElementById('slRot').value)/100;
+  const opacity=parseInt(document.getElementById('slOpacity').value)/100;
+  const hue=parseInt(document.getElementById('slHue').value);
+
+  const [r,g,b]=hsl2rgb(hue,85,55);
+
+  // Grid bg
+  for(let gx=0;gx<=W;gx+=20){c.beginPath();c.moveTo(gx,0);c.lineTo(gx,H);c.strokeStyle='rgba(255,255,255,0.03)';c.lineWidth=1;c.stroke();}
+  for(let gy=0;gy<=H;gy+=20){c.beginPath();c.moveTo(0,gy);c.lineTo(W,gy);c.strokeStyle='rgba(255,255,255,0.03)';c.lineWidth=1;c.stroke();}
+
+  const cx=W/2,cy=H/2;
+  // Multi-layer gaussian
+  for(let layer=5;layer>=0;layer--){
+    const layerRx=sx*(1-layer*.08);
+    const layerRy=sy*(1-layer*.08);
+    const layerA=opacity*(layer===0?.9:.15+layer*.05);
+    drawEllipseGaussian(c,cx,cy,layerRx,layerRy,rot,r,g,b,layerA);
+  }
+
+  // Axes
+  c.save();c.translate(cx,cy);c.rotate(rot);
+  c.strokeStyle='rgba(255,255,255,0.2)';c.lineWidth=1;c.setLineDash([3,4]);
+  c.beginPath();c.moveTo(-sx-15,0);c.lineTo(sx+15,0);c.stroke();
+  c.beginPath();c.moveTo(0,-sy-15);c.lineTo(0,sy+15);c.stroke();
+  c.setLineDash([]);
+  // Scale arrows
+  c.strokeStyle=`rgba(${r},${g},${b},0.7)`;c.lineWidth=2;
+  c.beginPath();c.moveTo(0,0);c.lineTo(sx,0);
+  c.moveTo(sx-6,-4);c.lineTo(sx,0);c.lineTo(sx-6,4);c.stroke();
+  c.beginPath();c.moveTo(0,0);c.lineTo(0,-sy);
+  c.moveTo(-4,-sy+6);c.lineTo(0,-sy);c.lineTo(4,-sy+6);c.stroke();
+  c.restore();
+
+  // Center dot
+  c.beginPath();c.arc(cx,cy,4,0,Math.PI*2);
+  c.fillStyle='#fff';c.fill();
+}
+
+// Wire up sliders
+['slScaleX','slScaleY','slRot','slOpacity','slHue'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.addEventListener('input',()=>{
+    const vId='v'+id.slice(2);
+    const vEl=document.getElementById(vId);
+    if(vEl){
+      if(id==='slRot')vEl.textContent=Math.round(parseInt(el.value)/100*180/Math.PI)+'°';
+      else if(id==='slOpacity')vEl.textContent=(parseInt(el.value)/100).toFixed(2);
+      else if(id==='slHue')vEl.textContent=el.value+'°';
+      else vEl.textContent=el.value;
+    }
+    drawInteractive();
+  });
+});
+drawInteractive();
+
+// ═══════════════════════════════════════
+// SCALE SCENE
+// ═══════════════════════════════════════
+(function(){
+  const c=getCtx('scaleScene');if(!c)return;
+  const W=900,H=220;
+  c.fillStyle='#0d1220';c.fillRect(0,0,W,H);
+  const panels=[
+    {x:10,w:180,n:1,   label:'1 Gaussian',   sub:'A single blob'},
+    {x:205,w:200,n:12, label:'50 Gaussians',  sub:'Rough silhouette'},
+    {x:415,w:220,n:60, label:'500 Gaussians', sub:'Recognizable form'},
+    {x:645,w:245,n:180,label:'3M Gaussians',  sub:'Photorealistic'},
+  ];
+
+  // Simple scene shape: a teapot-like silhouette
+  function inShape(px,py,cx,cy){
+    // body
+    if(Math.pow((px-cx)/40,2)+Math.pow((py-cy)/35,2)<1)return[0,229,255];
+    // spout
+    if(px>cx+25&&px<cx+60&&py>cy-15&&py<cy+5)return[0,200,220];
+    // handle
+    if(px>cx-60&&px<cx-28&&py>cy-10&&py<cy+20)return[0,200,220];
+    // lid
+    if(Math.pow((px-cx)/18,2)+Math.pow((py-(cy-35))/10,2)<1)return[0,229,255];
+    return null;
+  }
+
+  panels.forEach(p=>{
+    c.fillStyle='rgba(255,255,255,0.02)';c.fillRect(p.x,10,p.w,H-30);
+    c.strokeStyle='rgba(255,255,255,0.06)';c.strokeRect(p.x,10,p.w,H-30);
+    const pcx=p.x+p.w/2,pcy=100;
+
+    if(p.n===1){
+      drawEllipseGaussian(c,pcx,pcy,40,35,0,0,229,255,0.65);
+    } else {
+      let placed=0;
+      for(let attempt=0;attempt<p.n*20&&placed<p.n;attempt++){
+        const tx=pcx+(Math.random()-.5)*130,ty=pcy+(Math.random()-.5)*100;
+        const col=inShape(tx,ty,pcx,pcy);
+        if(col){
+          const sz=p.n<20?12:p.n<80?5:2.5;
+          drawEllipseGaussian(c,tx,ty,sz*1.5,sz*.7,Math.random()*Math.PI,col[0],col[1],col[2],p.n<20?.55:.4);
+          placed++;
+        }
+      }
+    }
+    c.fillStyle='rgba(0,229,255,0.7)';c.font='700 9px Space Mono';c.textAlign='center';
+    c.fillText(p.label,pcx,H-12);
+    c.fillStyle='rgba(255,255,255,0.3)';c.font='600 8px Space Mono';
+    c.fillText(p.sub,pcx,H-3);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DGS Video Processor — Process Flow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #06080f;
+    --surface: #0d1220;
+    --surface2: #131929;
+    --accent: #00e5ff;
+    --accent2: #7c4dff;
+    --accent3: #ff6b6b;
+    --accent4: #69ff47;
+    --accent5: #ffab40;
+    --text: #e8eaf6;
+    --muted: #8892aa;
+    --border: rgba(255,255,255,0.07);
+    --glow-cyan: rgba(0,229,255,0.15);
+    --glow-purple: rgba(124,77,255,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  .noise {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin-top: 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    color: #fff;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+
+  p, li {
+    color: var(--muted);
+    line-height: 1.75;
+    font-size: 0.95rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+  }
+
+  ul { padding-left: 1.2rem; margin-bottom: 0.75rem; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin: 2rem 0 3rem;
+  }
+  .toc h3 { color: var(--accent); font-size: 0.9rem; margin-bottom: 0.75rem; }
+  .toc ol { padding-left: 1.4rem; }
+  .toc li { margin-bottom: 0.35rem; font-size: 0.9rem; }
+  .toc a { color: var(--text); }
+  .toc a:hover { color: var(--accent); }
+
+  /* ── AUDIENCE BADGES ── */
+  .audience {
+    display: inline-flex;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid;
+  }
+  .badge-pm { color: var(--accent4); border-color: var(--accent4); background: rgba(105,255,71,0.08); }
+  .badge-lead { color: var(--accent); border-color: var(--accent); background: rgba(0,229,255,0.08); }
+  .badge-dev { color: var(--accent2); border-color: var(--accent2); background: rgba(124,77,255,0.08); }
+
+  /* ── DIAGRAM CARDS ── */
+  .diagram-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .diagram-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .diagram-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  /* ── STAGE CARDS ── */
+  .stage-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    margin: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .stage-card:hover {
+    border-color: rgba(0,229,255,0.3);
+  }
+  .stage-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .stage-card.stage-init::before    { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .stage-card.stage-watch::before   { background: linear-gradient(90deg, var(--accent4), var(--accent)); }
+  .stage-card.stage-process::before { background: linear-gradient(90deg, var(--accent2), var(--accent3)); }
+  .stage-card.stage-extract::before { background: linear-gradient(90deg, var(--accent5), var(--accent3)); }
+  .stage-card.stage-colmap::before  { background: linear-gradient(90deg, var(--accent3), var(--accent2)); }
+  .stage-card.stage-train::before   { background: linear-gradient(90deg, var(--accent2), var(--accent4)); }
+  .stage-card.stage-export::before  { background: linear-gradient(90deg, var(--accent4), var(--accent5)); }
+  .stage-card.stage-cleanup::before { background: linear-gradient(90deg, var(--accent), var(--accent4)); }
+
+  .stage-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .stage-init .stage-number    { color: var(--accent); }
+  .stage-watch .stage-number   { color: var(--accent4); }
+  .stage-process .stage-number { color: var(--accent2); }
+  .stage-extract .stage-number { color: var(--accent5); }
+  .stage-colmap .stage-number  { color: var(--accent3); }
+  .stage-train .stage-number   { color: var(--accent2); }
+  .stage-export .stage-number  { color: var(--accent4); }
+  .stage-cleanup .stage-number { color: var(--accent); }
+
+  /* ── IO BOX ── */
+  .io-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  @media (max-width: 640px) {
+    .io-grid { grid-template-columns: 1fr; }
+  }
+  .io-box {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--border);
+  }
+  .io-box-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .io-box-input .io-box-label  { color: var(--accent); }
+  .io-box-output .io-box-label { color: var(--accent4); }
+  .io-box ul { list-style: none; padding: 0; margin: 0; }
+  .io-box li {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text);
+    padding: 0.2rem 0;
+    margin: 0;
+  }
+  .io-box li::before {
+    content: '›';
+    margin-right: 0.5rem;
+    color: var(--muted);
+  }
+
+  /* ── ERROR BOX ── */
+  .error-box {
+    background: rgba(255,107,107,0.06);
+    border: 1px solid rgba(255,107,107,0.2);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin: 0.75rem 0;
+  }
+  .error-box-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent3);
+    margin-bottom: 0.4rem;
+    display: block;
+  }
+  .error-box ul { list-style: none; padding: 0; margin: 0; }
+  .error-box li {
+    font-size: 0.85rem;
+    color: var(--accent3);
+    padding: 0.15rem 0;
+    margin: 0;
+  }
+  .error-box li::before {
+    content: '⚠';
+    margin-right: 0.5rem;
+  }
+
+  /* ── DEV REFERENCE ── */
+  .dev-ref {
+    background: rgba(124,77,255,0.06);
+    border: 1px solid rgba(124,77,255,0.2);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+  }
+  .dev-ref-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 0.3rem;
+    display: block;
+  }
+  .dev-ref code {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    background: rgba(124,77,255,0.12);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+  }
+
+  /* ── SUBSTEPS ── */
+  .substeps {
+    margin: 1rem 0;
+    padding-left: 0;
+    list-style: none;
+    counter-reset: substep;
+  }
+  .substeps li {
+    counter-increment: substep;
+    position: relative;
+    padding-left: 2.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .substeps li::before {
+    content: counter(substep);
+    position: absolute;
+    left: 0;
+    top: 0.1rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+  }
+
+  /* ── ENV VARS TABLE ── */
+  .env-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+  }
+  .env-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-align: left;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .env-table td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .env-table td:first-child {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent4);
+  }
+  .env-table tr:hover td { background: var(--surface); }
+
+  /* ── PIPELINE VISUAL ── */
+  .pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    align-items: stretch;
+    margin: 2rem 0;
+  }
+  .pipeline-step {
+    flex: 1 1 120px;
+    min-width: 100px;
+    text-align: center;
+    padding: 1rem 0.5rem;
+    position: relative;
+  }
+  .pipeline-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.6rem;
+    font-size: 1.4rem;
+    border: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+  }
+  .pipeline-step:nth-child(1) .pipeline-icon { background: rgba(0,229,255,0.12); }
+  .pipeline-step:nth-child(2) .pipeline-icon { background: rgba(105,255,71,0.12); }
+  .pipeline-step:nth-child(3) .pipeline-icon { background: rgba(255,171,64,0.12); }
+  .pipeline-step:nth-child(4) .pipeline-icon { background: rgba(255,107,107,0.12); }
+  .pipeline-step:nth-child(5) .pipeline-icon { background: rgba(124,77,255,0.12); }
+  .pipeline-step:nth-child(6) .pipeline-icon { background: rgba(0,229,255,0.12); }
+  .pipeline-step:nth-child(7) .pipeline-icon { background: rgba(105,255,71,0.12); }
+  .pipeline-step:nth-child(8) .pipeline-icon { background: rgba(255,171,64,0.12); }
+
+  .pipeline-step-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .pipeline-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-70%);
+    color: var(--muted);
+    font-size: 1rem;
+    z-index: 2;
+  }
+
+  /* ── CONNECTOR LINE ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0;
+    color: var(--muted);
+    font-size: 1.5rem;
+  }
+
+  /* ── MERMAID ── */
+  .mermaid {
+    margin: 1rem 0;
+  }
+  .mermaid svg {
+    max-width: 100%;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    background: rgba(0,229,255,0.06);
+    border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+  }
+  .callout-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.3rem;
+    display: block;
+  }
+  .callout p { margin: 0; }
+
+  /* ── RETRY VIS ── */
+  .retry-vis {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .retry-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+  }
+  .retry-box .label { color: var(--muted); font-size: 0.55rem; display: block; margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.1em; }
+  .retry-box .value { color: var(--accent5); }
+  .retry-arrow { color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<header>
+  <span class="tag">Architecture Reference</span>
+  <h1>3DGS Video Processor<br>Process Flow</h1>
+  <p class="subtitle">End-to-end pipeline — from video upload to 3D Gaussian Splat output</p>
+</header>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                                        -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#overview">High-Level Overview</a></li>
+    <li><a href="#lifecycle">System Lifecycle Diagram</a></li>
+    <li><a href="#stage-0">Stage 0 — Initialization &amp; Configuration</a></li>
+    <li><a href="#stage-1">Stage 1 — File Watching &amp; Folder Detection</a></li>
+    <li><a href="#stage-2">Stage 2 — Duplicate Detection &amp; Job Queuing</a></li>
+    <li><a href="#stage-3">Stage 3 — Job Execution &amp; Retry Logic</a></li>
+    <li><a href="#stage-4">Stage 4 — Input Validation</a></li>
+    <li><a href="#stage-5">Stage 5 — Frame Extraction (FFmpeg)</a></li>
+    <li><a href="#stage-6">Stage 6 — COLMAP Sparse Reconstruction</a></li>
+    <li><a href="#stage-7">Stage 7 — 3DGS Training (Backend)</a></li>
+    <li><a href="#stage-8">Stage 8 — Export (PLY &amp; SPLAT)</a></li>
+    <li><a href="#stage-9">Stage 9 — Post-Processing &amp; Cleanup</a></li>
+    <li><a href="#shutdown">Graceful Shutdown</a></li>
+    <li><a href="#env-vars">Environment Variable Reference</a></li>
+    <li><a href="#error-taxonomy">Error Taxonomy &amp; Retry Policy</a></li>
+  </ol>
+</nav>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- 1. HIGH-LEVEL OVERVIEW                                   -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="overview">
+  <div class="section-label">Section 01</div>
+  <h2>High-Level Overview</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <p>
+    The <strong>3DGS Video Processor</strong> is a long-running Rust service that watches a designated input
+    directory for new multi-video scene folders. When a complete upload is detected, it automatically
+    extracts frames, computes camera poses via structure-from-motion (COLMAP), trains a 3D Gaussian Splatting
+    model, and exports the result in PLY and SPLAT formats.
+  </p>
+  <p>
+    The system is designed for unattended, containerized operation with Azure Blob Storage integration,
+    automatic retries, checkpoint-based resumption, and graceful shutdown.
+  </p>
+
+  <!-- VISUAL PIPELINE STRIP -->
+  <div class="diagram-card">
+    <div class="diagram-title">End-to-End Pipeline</div>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-icon">📂</div>
+        <div class="pipeline-step-name">Watch</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">✅</div>
+        <div class="pipeline-step-name">Validate</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🎬</div>
+        <div class="pipeline-step-name">Extract</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">📐</div>
+        <div class="pipeline-step-name">COLMAP</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🧠</div>
+        <div class="pipeline-step-name">Train</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">💾</div>
+        <div class="pipeline-step-name">Export</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">📦</div>
+        <div class="pipeline-step-name">Deliver</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- 2. SYSTEM LIFECYCLE DIAGRAM                              -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="lifecycle">
+  <div class="section-label">Section 02</div>
+  <h2>System Lifecycle Diagram</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="diagram-card">
+    <div class="diagram-title">Full System Architecture (Mermaid)</div>
+    <pre class="mermaid">
+flowchart TB
+  subgraph INIT["🚀 Initialization"]
+    A[Start Process] --> B[Init Logging]
+    B --> C[Load Config from Env + YAML]
+    C --> D{Azure Configured?}
+    D -->|Yes| E[Mount Azure Blob Storage<br/>via Blobfuse2]
+    D -->|No| F[Use Local Filesystem]
+    E --> G[Validate Paths]
+    F --> G
+    G --> H[Start Health Server<br/>GET /health :8080]
+    H --> I[Init Shutdown Coordinator]
+    I --> J[Init Duplicate Detector]
+    J --> K[Init Job Queue<br/>capacity: 100]
+    K --> L[Start Retention Scheduler]
+  end
+
+  subgraph CONCURRENT["⚡ Concurrent Event Loops"]
+    direction LR
+    subgraph WATCHER["📂 Watcher Loop"]
+      W1[Poll / inotify<br/>INPUT_PATH] --> W2{New Folder?}
+      W2 -->|No| W1
+      W2 -->|Yes| W3{Duplicate?}
+      W3 -->|Already Processed| W1
+      W3 -->|Already Failed| W1
+      W3 -->|New| W4[Wait for Upload<br/>Stability]
+      W4 --> W5[Enqueue Job]
+      W5 --> W1
+    end
+
+    subgraph PROCESSOR["⚙️ Processor Loop"]
+      P1[Dequeue Job] --> P2{Disk Space<br/>≥ 10 GB?}
+      P2 -->|No| P3[Move to error/]
+      P2 -->|Yes| P4[Execute Pipeline<br/>with Retry]
+      P4 --> P5{Success?}
+      P5 -->|Yes| P6[Move to processed/]
+      P5 -->|No| P3
+      P6 --> P1
+      P3 --> P1
+    end
+  end
+
+  L --> CONCURRENT
+
+  subgraph PIPELINE["🔬 8-Stage Processing Pipeline"]
+    direction TB
+    S1["① Validation"] --> S2["② Frame Extraction<br/>(FFmpeg)"]
+    S2 --> S3["③ Metadata Extraction<br/>(FFprobe)"]
+    S3 --> S4["④ Manifest Generation"]
+    S4 --> S5["⑤ COLMAP Sparse<br/>Reconstruction"]
+    S5 --> S6["⑥ 3DGS Training<br/>(Backend)"]
+    S6 --> S7["⑦ PLY Export"]
+    S7 --> S8["⑧ SPLAT Export"]
+  end
+
+  P4 -.-> PIPELINE
+
+  subgraph SHUTDOWN["🛑 Graceful Shutdown"]
+    SH1[SIGTERM / SIGINT] --> SH2[Set Shutdown Flag]
+    SH2 --> SH3[Wait for Watcher]
+    SH3 --> SH4[Wait for Processor]
+    SH4 --> SH5[Stop Cleanup Scheduler]
+    SH5 --> SH6{Azure Mounted?}
+    SH6 -->|Yes| SH7[Unmount Blobfuse2]
+    SH6 -->|No| SH8[Done]
+    SH7 --> SH8
+  end
+
+  CONCURRENT -->|Signal| SHUTDOWN
+
+  style INIT fill:#0d1a2e,stroke:#00e5ff,stroke-width:1px,color:#e8eaf6
+  style CONCURRENT fill:#0d1a2e,stroke:#7c4dff,stroke-width:1px,color:#e8eaf6
+  style PIPELINE fill:#0d1a2e,stroke:#ff6b6b,stroke-width:1px,color:#e8eaf6
+  style SHUTDOWN fill:#0d1a2e,stroke:#ffab40,stroke-width:1px,color:#e8eaf6
+  style WATCHER fill:#131929,stroke:#69ff47,stroke-width:1px,color:#e8eaf6
+  style PROCESSOR fill:#131929,stroke:#7c4dff,stroke-width:1px,color:#e8eaf6
+    </pre>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 0 — INITIALIZATION                                 -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-0">
+  <div class="section-label">Section 03</div>
+  <h2>Stage 0 — Initialization &amp; Configuration</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <div class="stage-card stage-init">
+    <span class="stage-number">Stage 0 · Bootstrap</span>
+    <h3>System Startup Sequence</h3>
+    <p>
+      The service starts by initializing structured logging, loading configuration from environment variables
+      (with optional YAML override for training hyperparameters), optionally mounting Azure Blob Storage
+      containers via Blobfuse2, and validating that all required directories exist.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Initialize Logging</strong> — Sets up the <code>tracing</code> subscriber with structured JSON
+        output. Log level is controlled by <code>LOG_LEVEL</code> env var (default: <code>info</code>).
+        Credential values are automatically redacted.
+      </li>
+      <li>
+        <strong>Load Configuration</strong> — Reads <strong>all operational parameters</strong> from environment
+        variables (INPUT_PATH, OUTPUT_PATH, BACKEND, etc.). A separate YAML config file provides <em>only</em>
+        3DGS training hyperparameters (iterations, densification settings).
+      </li>
+      <li>
+        <strong>Azure Blob Storage Mounting</strong> (optional) — If Azure config is detected, authenticates via
+        connection string, SAS token, or Managed Identity, then uses Blobfuse2 to FUSE-mount blob containers as
+        local directories.
+      </li>
+      <li>
+        <strong>Validate Paths</strong> — Confirms that INPUT_PATH, OUTPUT_PATH, PROCESSED_PATH, ERROR_PATH, and
+        TEMP_PATH all exist and are accessible.
+      </li>
+      <li>
+        <strong>Start Health Server</strong> — Optionally launches an HTTP server on port 8080 with a
+        <code>GET /health</code> endpoint returning JSON status (enabled via <code>HEALTH_CHECK_ENABLED=true</code>).
+      </li>
+      <li>
+        <strong>Initialize Subsystems</strong> — Creates the shutdown coordinator, duplicate detector,
+        job queue (capacity 100), and starts the retention cleanup scheduler.
+      </li>
+      <li>
+        <strong>Spawn Event Loops</strong> — Launches the <em>Watcher Loop</em> and <em>Processor Loop</em>
+        as concurrent Tokio tasks, then blocks on the main thread awaiting a shutdown signal.
+      </li>
+    </ol>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>Environment variables</li>
+          <li>config.yaml (training params)</li>
+          <li>Azure credentials (optional)</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>Configured runtime</li>
+          <li>Mounted storage (if Azure)</li>
+          <li>Health endpoint active</li>
+          <li>Watcher + Processor running</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>Missing required env vars (INPUT_PATH, OUTPUT_PATH, etc.) — fatal, process exits</li>
+        <li>Azure authentication failure — fatal if Azure is configured</li>
+        <li>Blobfuse2 mount failure — fatal if Azure is configured</li>
+        <li>Path validation failure — fatal, directories must exist</li>
+        <li>Port 8080 already in use — health server fails to bind</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/main.rs</code> lines 22–175 · <code>src/config/</code> (env.rs, yaml.rs) ·
+      <code>src/azure/</code> · <code>src/logging/</code> · <code>src/health/</code> ·
+      <code>src/shutdown/</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 1 — FILE WATCHING                                  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-1">
+  <div class="section-label">Section 04</div>
+  <h2>Stage 1 — File Watching &amp; Folder Detection</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <div class="stage-card stage-watch">
+    <span class="stage-number">Stage 1 · Watcher Loop</span>
+    <h3>Detecting New Scene Uploads</h3>
+    <p>
+      The watcher loop continuously monitors <code>INPUT_PATH</code> for new sub-folders. It uses
+      <strong>inotify</strong> (Linux kernel filesystem notifications) for near-instant detection, with an
+      automatic fallback to <strong>polling</strong> for network-mounted filesystems (NFS, Blobfuse2) where
+      inotify may not work.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Detect New Folder</strong> — Scans INPUT_PATH for directories that haven't been seen before.
+        Uses inotify for local filesystems; falls back to polling at configurable intervals
+        (<code>POLL_INTERVAL_SECS</code>, default 10s).
+      </li>
+      <li>
+        <strong>Wait for Upload Stability</strong> — Once a folder is detected, the system monitors it for
+        <code>UPLOAD_STABILITY_TIMEOUT_SECS</code> (default 60s) with no new file modifications. This ensures
+        multi-video uploads from Azure Blob Storage or slow network connections are fully complete before
+        processing begins. The timer <em>resets</em> each time a new file arrives.
+      </li>
+    </ol>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>INPUT_PATH directory</li>
+          <li>Poll interval (10s default)</li>
+          <li>Stability timeout (60s default)</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>Stable folder path ready for processing</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Stability Detection Algorithm</div>
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> Scanning: Start watching INPUT_PATH
+  Scanning --> FolderDetected: New folder found
+  Scanning --> Scanning: No new folders (poll interval)
+
+  FolderDetected --> StabilityCheck: Begin monitoring folder
+
+  state StabilityCheck {
+    [*] --> Waiting
+    Waiting --> TimerReset: New file modification
+    TimerReset --> Waiting: Restart countdown
+    Waiting --> Stable: No changes for N seconds
+  }
+
+  StabilityCheck --> ReadyForProcessing: Upload complete
+  StabilityCheck --> Error: Timeout or I/O error
+
+  ReadyForProcessing --> [*]: Folder enqueued
+  Error --> Scanning: Skip, retry next cycle
+      </pre>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>INPUT_PATH becomes inaccessible (Azure unmount, permission change)</li>
+        <li>Stability timeout never reached (continuously changing files)</li>
+        <li>inotify watch limit exceeded (falls back to polling automatically)</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/watcher/mod.rs</code> — <code>detect_new_folder()</code> ·
+      <code>src/watcher/stability.rs</code> — <code>wait_for_stability()</code> ·
+      <code>src/main.rs</code> — <code>run_watcher_loop()</code> (lines 181–261)
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 2 — DEDUP & QUEUING                                -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-2">
+  <div class="section-label">Section 05</div>
+  <h2>Stage 2 — Duplicate Detection &amp; Job Queuing</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <div class="stage-card stage-process">
+    <span class="stage-number">Stage 2 · Dedup &amp; Queue</span>
+    <h3>Preventing Reprocessing &amp; Managing Work</h3>
+    <p>
+      Before enqueuing a job, the system checks whether the folder has already been successfully processed or
+      previously failed. This makes the service <strong>restart-resilient</strong> — no in-memory state is
+      required for deduplication, as it checks the filesystem directly.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Check <code>processed/</code></strong> — If a folder with the same name exists in PROCESSED_PATH,
+        the job is skipped with status <code>AlreadyProcessed</code>.
+      </li>
+      <li>
+        <strong>Check <code>error/</code></strong> — If a folder with the same name exists in ERROR_PATH,
+        the job is skipped with status <code>AlreadyFailed</code>.
+      </li>
+      <li>
+        <strong>Enqueue as <code>New</code></strong> — A <code>QueuedJob</code> is created with a unique UUID
+        and submitted to the bounded FIFO job queue (capacity: 100). If the queue is full, the enqueue
+        call applies backpressure (waits).
+      </li>
+    </ol>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>Detected folder path</li>
+          <li>PROCESSED_PATH directory</li>
+          <li>ERROR_PATH directory</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>QueuedJob (UUID + folder path)</li>
+          <li>or: skip (already processed/failed)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">Design Decision</span>
+      <p>Deduplication is <strong>filesystem-based, not in-memory</strong>. This means the service can be
+      restarted at any time without losing track of what has been processed. Container restarts are safe.</p>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/processor/dedup.rs</code> — <code>DuplicateDetector</code>, <code>DuplicateStatus</code> ·
+      <code>src/processor/queue.rs</code> — <code>JobQueue</code>, <code>QueuedJob</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 3 — JOB EXECUTION & RETRY                          -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-3">
+  <div class="section-label">Section 06</div>
+  <h2>Stage 3 — Job Execution &amp; Retry Logic</h2>
+  <div class="audience">
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="stage-card stage-process">
+    <span class="stage-number">Stage 3 · Processor Loop</span>
+    <h3>Orchestrating the Processing Pipeline</h3>
+    <p>
+      The processor loop dequeues jobs one at a time and runs the 8-stage pipeline within a retry wrapper.
+      Before execution, disk space is verified. Each pipeline run supports <strong>checkpoint-based
+      resumption</strong> — if a job is interrupted, it can resume from the last completed stage.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Dequeue Job</strong> — Pulls the next job from the FIFO queue with a 1-second timeout
+        (allowing periodic shutdown-flag checks).
+      </li>
+      <li>
+        <strong>Check Disk Space</strong> — Verifies ≥ 10 GB free on the temp volume. If insufficient,
+        the job is immediately moved to <code>error/</code>.
+      </li>
+      <li>
+        <strong>Execute with Retry</strong> — Runs the full 8-stage pipeline. On retryable failure,
+        retries with exponential backoff (2s → 4s → 8s → … capped at 60s), up to <code>MAX_RETRIES</code>
+        (default 3). Non-retryable errors (validation, config) fail immediately.
+      </li>
+      <li>
+        <strong>Move Result</strong> — On success, the input folder is moved to <code>processed/</code>.
+        On final failure, it is moved to <code>error/</code>.
+      </li>
+    </ol>
+
+    <!-- Retry visualization -->
+    <div class="diagram-card">
+      <div class="diagram-title">Exponential Backoff Retry Strategy</div>
+      <div class="retry-vis">
+        <div class="retry-box"><span class="label">Attempt 1</span><span class="value">Immediate</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Fail → Wait</span><span class="value">2s</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Attempt 2</span><span class="value">Retry</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Fail → Wait</span><span class="value">4s</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Attempt 3</span><span class="value">Retry</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Fail → Wait</span><span class="value">8s</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Final Attempt</span><span class="value">Last Try</span></div>
+        <span class="retry-arrow">→</span>
+        <div class="retry-box"><span class="label">Exhausted</span><span class="value" style="color: var(--accent3);">→ error/</span></div>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Checkpoint Resumption Flow</div>
+      <pre class="mermaid">
+flowchart LR
+  subgraph Pipeline["8-Stage Pipeline"]
+    S1["① Validate"] --> S2["② Frames"]
+    S2 --> S3["③ Metadata"]
+    S3 --> S4["④ Manifest"]
+    S4 --> S5["⑤ COLMAP"]
+    S5 --> S6["⑥ Train"]
+    S6 --> S7["⑦ PLY"]
+    S7 --> S8["⑧ SPLAT"]
+  end
+
+  CP[".checkpoint.json<br/>saved after each stage"] -.->|Resume on restart| S4
+
+  style Pipeline fill:#131929,stroke:#7c4dff,stroke-width:1px,color:#e8eaf6
+  style CP fill:#0d1a2e,stroke:#ffab40,stroke-width:1px,color:#ffab40
+      </pre>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>Insufficient disk space (< 10 GB) — job moved to error/ immediately</li>
+        <li>Queue closed unexpectedly — processor loop terminates</li>
+        <li>All retries exhausted — job moved to error/</li>
+        <li>Shutdown signal during processing — current stage completes, then exits</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/main.rs</code> — <code>run_processor_loop()</code> (lines 268–388) ·
+      <code>src/processor/retry.rs</code> — <code>execute_with_retry()</code>, <code>RetryConfig</code> ·
+      <code>src/processor/job.rs</code> — <code>JobExecutionParams</code> ·
+      <code>src/processor/progress.rs</code> — <code>JobCheckpoint</code>, <code>CompletedStages</code> ·
+      <code>src/storage/</code> — <code>check_disk_space()</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 4 — INPUT VALIDATION                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-4">
+  <div class="section-label">Section 07</div>
+  <h2>Stage 4 — Input Validation</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <div class="stage-card stage-extract">
+    <span class="stage-number">Pipeline Stage ① · Validation</span>
+    <h3>Verifying Video Inputs</h3>
+    <p>
+      The first pipeline stage validates all video files in the input folder before any expensive processing begins.
+      This is a <strong>non-retryable</strong> stage — validation failures indicate fundamentally bad input
+      that will not improve on retry.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Discover Videos</strong> — Scans the input folder for files with supported extensions
+        (MP4, MOV, AVI, MKV, WebM).
+      </li>
+      <li>
+        <strong>Validate Each Video</strong> — Checks format integrity, minimum resolution, minimum frame count,
+        and minimum duration against configurable thresholds (<code>ValidationConfig</code>).
+      </li>
+      <li>
+        <strong>Return Video Metadata</strong> — Extracts and returns metadata (resolution, FPS, duration, codec)
+        for each valid video.
+      </li>
+    </ol>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>Folder with video files</li>
+          <li>ValidationConfig thresholds</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>List of validated VideoInput objects</li>
+          <li>VideoMetadata per video</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors (Non-Retryable)</span>
+      <ul>
+        <li>No video files found in folder</li>
+        <li>Unsupported video format/codec</li>
+        <li>Resolution below minimum threshold</li>
+        <li>Too few frames or too short duration</li>
+        <li>Corrupted video file (FFprobe cannot read)</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/validation/</code> — <code>VideoValidator</code>, <code>ValidationConfig</code> ·
+      <code>src/extractors/metadata.rs</code> — <code>extract_metadata()</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 5 — FRAME EXTRACTION                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-5">
+  <div class="section-label">Section 08</div>
+  <h2>Stage 5 — Frame Extraction (FFmpeg)</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="stage-card stage-extract">
+    <span class="stage-number">Pipeline Stage ② + ③ · Frame &amp; Metadata Extraction</span>
+    <h3>Extracting Frames from Multi-Video Input</h3>
+    <p>
+      All videos in the input folder are processed <strong>concurrently</strong>. Each video is decoded
+      by FFmpeg into a sequence of JPEG frames at a configurable frame rate. Metadata is extracted via FFprobe.
+      Since FFmpeg is a blocking external process, all calls are wrapped in <code>tokio::task::spawn_blocking</code>
+      to avoid starving the async runtime.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Concurrent Extraction</strong> — All videos are processed simultaneously using
+        <code>futures::stream::buffer_unordered()</code> with concurrency bounded by CPU count.
+      </li>
+      <li>
+        <strong>FFmpeg Decode</strong> — For each video, runs:
+        <br><code style="font-size:0.8rem; color: var(--accent4);">ffmpeg -i video.mp4 -vf "fps=N" -frames:v M -q:v 2 -an -y frame_%06d.jpg</code>
+      </li>
+      <li>
+        <strong>Metadata Extraction</strong> — FFprobe queries each video for resolution, duration, FPS,
+        frame count, GPS coordinates, and camera information.
+      </li>
+      <li>
+        <strong>Manifest Generation</strong> — Creates <code>manifest.json</code> with video entries,
+        frame lists, and camera intrinsics. Supports user-provided <code>camera_intrinsics.yaml</code> override.
+      </li>
+    </ol>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>N video files (MP4, MOV, etc.)</li>
+          <li>ExtractionOptions (FPS, max frames)</li>
+          <li>camera_intrinsics.yaml (optional)</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>FrameSet per video (JPEG sequences)</li>
+          <li>VideoMetadata per video</li>
+          <li>manifest.json</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Concurrent Multi-Video Extraction</div>
+      <pre class="mermaid">
+flowchart LR
+  subgraph Input["Input Folder"]
+    V1["view_1.mp4"]
+    V2["view_2.mp4"]
+    V3["view_3.mp4"]
+  end
+
+  subgraph Extract["spawn_blocking × N CPUs"]
+    E1["FFmpeg ①"]
+    E2["FFmpeg ②"]
+    E3["FFmpeg ③"]
+  end
+
+  subgraph Output["Frame Sets"]
+    F1["frames/view_1/<br/>frame_000001.jpg<br/>frame_000002.jpg<br/>..."]
+    F2["frames/view_2/<br/>frame_000001.jpg<br/>..."]
+    F3["frames/view_3/<br/>frame_000001.jpg<br/>..."]
+  end
+
+  V1 --> E1 --> F1
+  V2 --> E2 --> F2
+  V3 --> E3 --> F3
+
+  style Input fill:#131929,stroke:#ffab40,stroke-width:1px,color:#e8eaf6
+  style Extract fill:#131929,stroke:#ff6b6b,stroke-width:1px,color:#e8eaf6
+  style Output fill:#131929,stroke:#69ff47,stroke-width:1px,color:#e8eaf6
+      </pre>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors (Retryable)</span>
+      <ul>
+        <li>FFmpeg binary not found in PATH</li>
+        <li>FFmpeg decode failure (corrupt segment) — retryable</li>
+        <li>Disk full during frame write</li>
+        <li>Insufficient permissions on temp directory</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/extractors/ffmpeg.rs</code> — <code>extract_frames_sync()</code>, <code>VideoInput</code>,
+      <code>FrameSet</code>, <code>ExtractionOptions</code> ·
+      <code>src/extractors/metadata.rs</code> — <code>extract_metadata()</code>, <code>VideoMetadata</code> ·
+      <code>src/processor/multi_video.rs</code> — concurrent extraction ·
+      <code>src/manifest/</code> — <code>generate_manifest()</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 6 — COLMAP                                         -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-6">
+  <div class="section-label">Section 09</div>
+  <h2>Stage 6 — COLMAP Sparse Reconstruction</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="stage-card stage-colmap">
+    <span class="stage-number">Pipeline Stage ⑤ · Structure from Motion</span>
+    <h3>Computing Camera Poses &amp; Sparse 3D Points</h3>
+    <p>
+      <strong>COLMAP</strong> is an industry-standard Structure-from-Motion (SfM) tool. This stage takes
+      the extracted frames and computes the 3D position and orientation (pose) of each camera, along with
+      a sparse point cloud. This geometric information is essential input for 3DGS training.
+    </p>
+    <p>
+      COLMAP runs as an external binary via <code>spawn_blocking</code>. The process is computationally
+      intensive (minutes to hours depending on frame count and scene complexity).
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Feature Extraction</strong> — Detects visual keypoints (SIFT features) in every frame image.
+        <br>Command: <code style="font-size:0.8rem; color: var(--accent4);">colmap feature_extractor --image_path ... --database_path ...</code>
+      </li>
+      <li>
+        <strong>Feature Matching</strong> — Matches features between image pairs. Supports three strategies:
+        <em>exhaustive</em> (all pairs, most accurate), <em>sequential</em> (adjacent frames, fastest),
+        or <em>vocab_tree</em> (vocabulary-based, balanced).
+      </li>
+      <li>
+        <strong>Sparse Reconstruction (Mapping)</strong> — Solves for camera poses and 3D point positions
+        using bundle adjustment. Produces a sparse 3D model.
+        <br>Command: <code style="font-size:0.8rem; color: var(--accent4);">colmap mapper --database_path ... --image_path ... --output_path ...</code>
+      </li>
+      <li>
+        <strong>Validation</strong> — Verifies the sparse model has sufficient quality: minimum 1,000 3D points
+        reconstructed. If insufficient, the error is <strong>non-retryable</strong> (indicates the input
+        images don't have enough overlap or texture).
+      </li>
+    </ol>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>Extracted JPEG frames</li>
+          <li>COLMAP binary path</li>
+          <li>Matching strategy config</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>ColmapOutput (sparse model dir)</li>
+          <li>Camera poses (intrinsics + extrinsics)</li>
+          <li>Sparse 3D point cloud</li>
+          <li>ColmapStats (point/camera count)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">COLMAP 4-Step Pipeline</div>
+      <pre class="mermaid">
+flowchart LR
+  A["🖼️ JPEG Frames"] --> B["Feature<br/>Extraction<br/>(SIFT)"]
+  B --> C["Feature<br/>Matching<br/>(pairs)"]
+  C --> D["Sparse<br/>Reconstruction<br/>(bundle adjustment)"]
+  D --> E{"≥ 1000<br/>points?"}
+  E -->|Yes| F["✅ Camera Poses<br/>+ Sparse Cloud"]
+  E -->|No| G["❌ InsufficientPoints<br/>(non-retryable)"]
+
+  style A fill:#131929,stroke:#ffab40,stroke-width:1px,color:#e8eaf6
+  style F fill:#131929,stroke:#69ff47,stroke-width:1px,color:#e8eaf6
+  style G fill:#131929,stroke:#ff6b6b,stroke-width:1px,color:#ff6b6b
+      </pre>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>COLMAP binary not found (COLMAP_BIN env var) — retryable</li>
+        <li>Feature extraction failure (corrupted images) — retryable</li>
+        <li>Insufficient points (&lt; 1000) — <strong>non-retryable</strong> (bad input)</li>
+        <li>Out of GPU memory during reconstruction — retryable</li>
+        <li>COLMAP process crash / timeout</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/colmap/mod.rs</code> — <code>run_colmap()</code> ·
+      <code>src/colmap/runner.rs</code> — <code>ColmapRunner</code> ·
+      <code>src/colmap/models.rs</code> — <code>ColmapOutput</code>, <code>ColmapStats</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 7 — 3DGS TRAINING                                  -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-7">
+  <div class="section-label">Section 10</div>
+  <h2>Stage 7 — 3D Gaussian Splatting Training</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="stage-card stage-train">
+    <span class="stage-number">Pipeline Stage ⑥ · 3DGS Model Training</span>
+    <h3>Learning the 3D Gaussian Representation</h3>
+    <p>
+      This is the core computational stage. A <strong>pluggable backend</strong> takes the COLMAP sparse
+      reconstruction and the extracted frames, then trains a 3D Gaussian Splatting model. The model represents
+      the scene as millions of 3D Gaussians, each with position, covariance, color (spherical harmonics), and
+      opacity. Training runs on GPU and is configured via YAML hyperparameters.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>Backend Selection</strong> — The system selects the training backend based on the
+        <code>BACKEND</code> environment variable. If not specified, it auto-detects the GPU platform
+        (CUDA, HIP, Metal) and selects the best available backend.
+      </li>
+      <li>
+        <strong>GPU Detection</strong> — Queries for available GPU hardware and validates
+        compatibility with the selected backend.
+      </li>
+      <li>
+        <strong>Training Execution</strong> — Runs the backend's <code>train()</code> method with:
+        <ul>
+          <li>Frame images as training data</li>
+          <li>COLMAP camera poses as ground truth</li>
+          <li>YAML-configured hyperparameters (iterations, learning rate, densification)</li>
+        </ul>
+      </li>
+    </ol>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Backend Plugin Architecture</div>
+      <pre class="mermaid">
+flowchart TB
+  subgraph Registry["Backend Registry"]
+    direction TB
+    T["GaussianSplatBackend Trait<br/><i>train() · export_ply() · export_splat()</i>"]
+  end
+
+  subgraph Backends["Available Backends"]
+    B1["gaussian-splatting<br/><i>Reference (Python)</i>"]
+    B2["gsplat<br/><i>Optimized (CUDA)</i>"]
+    B3["3dgs-cpp<br/><i>High-Perf (C++)</i>"]
+    B4["mock<br/><i>Testing only</i>"]
+    B5["Plugin .so<br/><i>Dynamic loading</i>"]
+  end
+
+  T --> B1
+  T --> B2
+  T --> B3
+  T --> B4
+  T --> B5
+
+  GPU["GPU Auto-Detect<br/>CUDA · HIP · Metal"] -.->|selects| Registry
+
+  style Registry fill:#131929,stroke:#7c4dff,stroke-width:1px,color:#e8eaf6
+  style Backends fill:#131929,stroke:#69ff47,stroke-width:1px,color:#e8eaf6
+  style GPU fill:#0d1a2e,stroke:#ffab40,stroke-width:1px,color:#ffab40
+      </pre>
+    </div>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>Extracted frames (JPEG)</li>
+          <li>COLMAP sparse model</li>
+          <li>TrainingConfig (from YAML)</li>
+          <li>Backend selection</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>BackendOutput (trained model)</li>
+          <li>Training metrics / logs</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>No GPU available — <strong>non-retryable</strong> (NoGpu)</li>
+        <li>GPU out of memory during training — retryable</li>
+        <li>Backend binary/library not found — retryable</li>
+        <li>Training divergence / NaN loss — retryable</li>
+        <li>Backend plugin .so load failure — retryable</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/backends/mod.rs</code> — <code>GaussianSplatBackend</code> trait ·
+      <code>src/backends/registry.rs</code> — <code>BackendRegistry</code> ·
+      <code>src/backends/gpu_detect.rs</code> — <code>detect_gpu()</code> ·
+      <code>src/reconstruction/</code> — reconstruction orchestration ·
+      <code>config.yaml</code> — training hyperparameters
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 8 — EXPORT                                         -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-8">
+  <div class="section-label">Section 11</div>
+  <h2>Stage 8 — Export (PLY &amp; SPLAT)</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <div class="stage-card stage-export">
+    <span class="stage-number">Pipeline Stages ⑦ + ⑧ · Export</span>
+    <h3>Exporting the Trained Model</h3>
+    <p>
+      The trained 3D Gaussian model is exported in two formats: <strong>PLY</strong> (standard 3D point cloud
+      format, widely supported by 3D tools) and <strong>SPLAT</strong> (compact binary format optimized for
+      real-time web rendering). Both files are written to the output directory with timestamp-based filenames.
+    </p>
+
+    <div class="io-grid">
+      <div class="io-box io-box-input">
+        <span class="io-box-label">Inputs</span>
+        <ul>
+          <li>BackendOutput (trained model)</li>
+          <li>Output directory path</li>
+        </ul>
+      </div>
+      <div class="io-box io-box-output">
+        <span class="io-box-label">Outputs</span>
+        <ul>
+          <li>model.ply (3D point cloud)</li>
+          <li>model.splat (web-optimized)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-label">Output Formats</span>
+      <p><strong>PLY</strong> — Industry-standard polygon file format. Compatible with MeshLab, Blender, CloudCompare, and other 3D tools. Contains position, color (SH coefficients), opacity, and covariance for each Gaussian.</p>
+      <p><strong>SPLAT</strong> — Compact binary format designed for real-time rendering in web browsers. Significantly smaller file size with quantized attributes.</p>
+    </div>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>Output directory write permission denied</li>
+        <li>Disk full during export</li>
+        <li>Model data corruption (serialization failure)</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/exporters/</code> — <code>export_ply()</code>, <code>export_to_splat()</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- STAGE 9 — POST-PROCESSING                                -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="stage-9">
+  <div class="section-label">Section 12</div>
+  <h2>Stage 9 — Post-Processing &amp; Cleanup</h2>
+  <div class="audience">
+    <span class="badge badge-pm">PM</span>
+    <span class="badge badge-lead">Lead Dev</span>
+  </div>
+
+  <div class="stage-card stage-cleanup">
+    <span class="stage-number">Stage 9 · Finalization</span>
+    <h3>Moving Results &amp; Cleaning Up</h3>
+    <p>
+      After the pipeline completes (success or failure), the input folder is moved to the appropriate
+      destination. A background retention scheduler periodically purges old results.
+    </p>
+
+    <ol class="substeps">
+      <li>
+        <strong>On Success</strong> — The input folder is moved from <code>INPUT_PATH/scene/</code> to
+        <code>PROCESSED_PATH/scene/</code>. Name collisions are handled by appending timestamps.
+      </li>
+      <li>
+        <strong>On Failure</strong> — The input folder is moved to <code>ERROR_PATH/scene/</code>.
+      </li>
+      <li>
+        <strong>Temp Cleanup</strong> — Temporary files in TEMP_PATH are cleaned via RAII
+        (<code>TempDir</code> auto-deletes on drop).
+      </li>
+      <li>
+        <strong>Retention Scheduler</strong> — A background task runs every hour, deleting folders in
+        <code>processed/</code> and <code>error/</code> older than <code>RETENTION_DAYS</code> (default 30).
+      </li>
+    </ol>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Data Flow — Input → Output → Archive</div>
+      <pre class="mermaid">
+flowchart LR
+  subgraph Storage["Storage Layout"]
+    direction TB
+    IN["📂 INPUT_PATH/<br/>scene_001/<br/>  ├ view1.mp4<br/>  ├ view2.mp4<br/>  └ view3.mp4"]
+    OUT["📦 OUTPUT_PATH/<br/>scene_001/<br/>  ├ model.ply<br/>  ├ model.splat<br/>  └ manifest.json"]
+    DONE["✅ PROCESSED_PATH/<br/>scene_001/"]
+    ERR["❌ ERROR_PATH/<br/>scene_001/"]
+    TEMP["🗑️ TEMP_PATH/<br/>auto-cleaned"]
+  end
+
+  IN -->|"Pipeline Success"| OUT
+  IN -->|"Move on success"| DONE
+  IN -->|"Move on failure"| ERR
+  IN -->|"Working files"| TEMP
+
+  DONE -->|"Retention: 30 days"| DEL["🗑️ Deleted"]
+  ERR -->|"Retention: 30 days"| DEL
+
+  style IN fill:#131929,stroke:#ffab40,stroke-width:1px,color:#e8eaf6
+  style OUT fill:#131929,stroke:#69ff47,stroke-width:1px,color:#e8eaf6
+  style DONE fill:#131929,stroke:#00e5ff,stroke-width:1px,color:#e8eaf6
+  style ERR fill:#131929,stroke:#ff6b6b,stroke-width:1px,color:#e8eaf6
+  style TEMP fill:#131929,stroke:#8892aa,stroke-width:1px,color:#8892aa
+  style DEL fill:#0d1a2e,stroke:#8892aa,stroke-width:1px,color:#8892aa
+      </pre>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/processor/cleanup.rs</code> — <code>move_to_processed()</code>, <code>move_to_error()</code> ·
+      <code>src/cleanup/</code> — <code>start_retention_scheduler()</code>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- GRACEFUL SHUTDOWN                                        -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="shutdown">
+  <div class="section-label">Section 13</div>
+  <h2>Graceful Shutdown</h2>
+  <div class="audience">
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="stage-card stage-cleanup">
+    <span class="stage-number">Lifecycle · Shutdown</span>
+    <h3>Signal Handling &amp; Ordered Teardown</h3>
+    <p>
+      The system handles SIGTERM and SIGINT for clean container orchestration. On receiving a shutdown signal,
+      it sets an atomic flag that both event loops check, allowing in-progress work to complete before teardown.
+      A <strong>5-minute timeout</strong> ensures the process always exits, even if a stage hangs.
+    </p>
+
+    <ol class="substeps">
+      <li><strong>Signal Received</strong> — SIGTERM/SIGINT sets the atomic <code>ShutdownFlag</code>.</li>
+      <li><strong>Watcher Exits</strong> — The watcher loop checks the flag each iteration and stops scanning.</li>
+      <li><strong>Processor Drains</strong> — The processor completes its current job (if any), then exits.</li>
+      <li><strong>Cleanup Scheduler Aborted</strong> — The retention scheduler task is cancelled.</li>
+      <li><strong>Azure Unmount</strong> — If Blobfuse2 was mounted, containers are unmounted cleanly.</li>
+      <li><strong>Health Server Stopped</strong> — The HTTP health endpoint is shut down.</li>
+      <li><strong>Timeout Guard</strong> — If all of the above takes > 5 minutes, the process exits forcefully.</li>
+    </ol>
+
+    <div class="error-box">
+      <span class="error-box-label">Potential Errors</span>
+      <ul>
+        <li>Azure unmount failure during shutdown (logged as warning, non-fatal)</li>
+        <li>Shutdown timeout exceeded — process exits with code 1</li>
+      </ul>
+    </div>
+
+    <div class="dev-ref">
+      <span class="dev-ref-label">Core Developer Reference</span>
+      <code>src/shutdown/</code> — <code>ShutdownCoordinator</code>, <code>ShutdownFlag</code> ·
+      <code>src/main.rs</code> lines 124–174
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ENV VAR REFERENCE                                        -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="env-vars">
+  <div class="section-label">Section 14</div>
+  <h2>Environment Variable Reference</h2>
+  <div class="audience">
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="diagram-card">
+    <div class="diagram-title">Required Variables</div>
+    <table class="env-table">
+      <thead>
+        <tr><th>Variable</th><th>Description</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>INPUT_PATH</td><td>Directory to watch for new scene folders</td><td>/data/input</td></tr>
+        <tr><td>OUTPUT_PATH</td><td>Directory for pipeline output (PLY, SPLAT)</td><td>/data/output</td></tr>
+        <tr><td>PROCESSED_PATH</td><td>Archive for successfully processed folders</td><td>/data/processed</td></tr>
+        <tr><td>ERROR_PATH</td><td>Archive for failed folders</td><td>/data/error</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="diagram-card">
+    <div class="diagram-title">Optional Variables (with Defaults)</div>
+    <table class="env-table">
+      <thead>
+        <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>TEMP_PATH</td><td>/tmp/3dgs-work</td><td>Working directory for intermediate files</td></tr>
+        <tr><td>CONFIG_PATH</td><td>/config/config.yaml</td><td>Training hyperparameter YAML file</td></tr>
+        <tr><td>BACKEND</td><td>gaussian-splatting</td><td>3DGS training backend to use</td></tr>
+        <tr><td>LOG_LEVEL</td><td>info</td><td>Logging verbosity (trace, debug, info, warn, error)</td></tr>
+        <tr><td>MAX_RETRIES</td><td>3</td><td>Maximum retry attempts per job</td></tr>
+        <tr><td>UPLOAD_STABILITY_TIMEOUT_SECS</td><td>60</td><td>Seconds to wait for upload stability</td></tr>
+        <tr><td>POLL_INTERVAL_SECS</td><td>10</td><td>Filesystem poll interval (seconds)</td></tr>
+        <tr><td>RETENTION_DAYS</td><td>30</td><td>Days to keep processed/error folders</td></tr>
+        <tr><td>RETRY_BASE_DELAY_SECS</td><td>2</td><td>Initial retry backoff delay</td></tr>
+        <tr><td>RETRY_MAX_DELAY_SECS</td><td>60</td><td>Maximum retry backoff delay cap</td></tr>
+        <tr><td>HEALTH_CHECK_ENABLED</td><td>false</td><td>Enable HTTP health endpoint</td></tr>
+        <tr><td>HEALTH_CHECK_PORT</td><td>8080</td><td>Health endpoint listen port</td></tr>
+        <tr><td>COLMAP_BIN</td><td>colmap</td><td>Path to COLMAP binary</td></tr>
+        <tr><td>COLMAP_VOCAB_TREE_PATH</td><td>(none)</td><td>Path to vocabulary tree for matching</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="diagram-card">
+    <div class="diagram-title">Azure Variables (Optional)</div>
+    <table class="env-table">
+      <thead>
+        <tr><th>Variable</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AZURE_STORAGE_CONNECTION_STRING</td><td>Full connection string (auth method 1)</td></tr>
+        <tr><td>AZURE_STORAGE_ACCOUNT</td><td>Storage account name</td></tr>
+        <tr><td>AZURE_STORAGE_SAS_TOKEN</td><td>SAS token (auth method 2)</td></tr>
+        <tr><td>AZURE_USE_MANAGED_IDENTITY</td><td>Use Azure Managed Identity (auth method 3)</td></tr>
+        <tr><td>AZURE_BLOB_CONTAINER_INPUT</td><td>Blob container for input</td></tr>
+        <tr><td>AZURE_BLOB_CONTAINER_OUTPUT</td><td>Blob container for output</td></tr>
+        <tr><td>AZURE_BLOB_CONTAINER_PROCESSED</td><td>Blob container for processed archive</td></tr>
+        <tr><td>AZURE_BLOB_CONTAINER_ERROR</td><td>Blob container for error archive</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ERROR TAXONOMY                                           -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<section class="section" id="error-taxonomy">
+  <div class="section-label">Section 15</div>
+  <h2>Error Taxonomy &amp; Retry Policy</h2>
+  <div class="audience">
+    <span class="badge badge-lead">Lead Dev</span>
+    <span class="badge badge-dev">Core Dev</span>
+  </div>
+
+  <div class="diagram-card">
+    <div class="diagram-title">Error Classification</div>
+    <pre class="mermaid">
+flowchart TB
+  ERR["ProcessorError"] --> RET["🔄 Retryable"]
+  ERR --> NRET["🛑 Non-Retryable"]
+
+  RET --> R1["Network errors"]
+  RET --> R2["Azure / Storage errors"]
+  RET --> R3["FFmpeg decode failures"]
+  RET --> R4["Training errors<br/>(except NoGpu)"]
+  RET --> R5["COLMAP errors<br/>(except InsufficientPoints)"]
+  RET --> R6["I/O errors"]
+
+  NRET --> N1["Validation errors<br/>(bad input)"]
+  NRET --> N2["Configuration errors<br/>(missing vars)"]
+  NRET --> N3["NoGpu<br/>(no hardware)"]
+  NRET --> N4["InsufficientPoints<br/>(bad scene geometry)"]
+
+  RET -->|"up to MAX_RETRIES<br/>with exponential backoff"| RETRY["Retry with Backoff"]
+  NRET -->|"immediate"| FAIL["Move to error/"]
+
+  style ERR fill:#131929,stroke:#ffab40,stroke-width:1px,color:#e8eaf6
+  style RET fill:#131929,stroke:#00e5ff,stroke-width:1px,color:#e8eaf6
+  style NRET fill:#131929,stroke:#ff6b6b,stroke-width:1px,color:#e8eaf6
+  style RETRY fill:#0d1a2e,stroke:#00e5ff,stroke-width:1px,color:#00e5ff
+  style FAIL fill:#0d1a2e,stroke:#ff6b6b,stroke-width:1px,color:#ff6b6b
+    </pre>
+  </div>
+
+  <div class="dev-ref">
+    <span class="dev-ref-label">Core Developer Reference</span>
+    <code>src/error.rs</code> — <code>ProcessorError</code> enum, <code>is_retryable()</code> method ·
+    <code>src/processor/retry.rs</code> — retry logic and backoff algorithm
+  </div>
+</section>
+
+
+</div><!-- /container -->
+
+<footer>
+  3DGS Video Processor · Architecture Documentation · Generated from src/main.rs analysis
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#131929',
+      primaryTextColor: '#e8eaf6',
+      primaryBorderColor: '#00e5ff',
+      lineColor: '#7c4dff',
+      secondaryColor: '#0d1a2e',
+      tertiaryColor: '#06080f',
+      fontFamily: 'Space Mono, monospace',
+      fontSize: '13px'
+    },
+    flowchart: {
+      curve: 'basis',
+      padding: 20,
+      nodeSpacing: 50,
+      rankSpacing: 60,
+      htmlLabels: true,
+      useMaxWidth: true
+    },
+    stateDiagram: {
+      htmlLabels: true,
+      useMaxWidth: true
+    }
+  });
+</script>
+</body>
+</html>

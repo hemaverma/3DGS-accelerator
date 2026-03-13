@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Gaussian Splatting — Visual Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #06080f;
+    --surface: #0d1220;
+    --surface2: #131929;
+    --accent: #00e5ff;
+    --accent2: #7c4dff;
+    --accent3: #ff6b6b;
+    --accent4: #69ff47;
+    --text: #e8eaf6;
+    --muted: #8892aa;
+    --border: rgba(255,255,255,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  .noise {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 3rem 2rem 2rem;
+    text-align: center;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin-top: 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .section {
+    margin-bottom: 4rem;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    color: #fff;
+  }
+
+  p {
+    color: var(--muted);
+    line-height: 1.75;
+    font-size: 0.95rem;
+    font-weight: 400;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── DIAGRAM CARDS ── */
+  .diagram-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .diagram-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .diagram-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  /* ── NERF vs 3DGS comparison ── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .compare-box {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+
+  .compare-box.nerf { border-color: rgba(255,107,107,0.3); }
+  .compare-box.dgs  { border-color: rgba(0,229,255,0.3); }
+
+  .compare-box canvas { display: block; margin: 0 auto 0.75rem; }
+
+  .compare-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .compare-box.nerf .compare-title { color: var(--accent3); }
+  .compare-box.dgs  .compare-title { color: var(--accent); }
+
+  .compare-desc {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .vs-badge {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* ── GAUSSIAN anatomy ── */
+  .gaussian-anatomy {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .anatomy-canvas-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .anatomy-props {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .prop-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    border-left: 3px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .prop-row:hover { border-left-color: var(--accent); }
+
+  .prop-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .prop-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .prop-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ── PIPELINE ── */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .pipe-step {
+    flex: 1;
+    min-width: 120px;
+    background: var(--surface2);
+    padding: 1rem 0.75rem;
+    text-align: center;
+    position: relative;
+  }
+
+  .pipe-step:first-child { border-radius: 10px 0 0 10px; }
+  .pipe-step:last-child  { border-radius: 0 10px 10px 0; }
+
+  .pipe-step + .pipe-step::before {
+    content: '▶';
+    position: absolute;
+    left: -0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-size: 0.7rem;
+    z-index: 2;
+  }
+
+  .pipe-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .pipe-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  .pipe-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ── PROJECTION DIAGRAM ── */
+  .projection-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .caption {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── COMPARISON TABLE ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  .compare-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-table td {
+    padding: 0.55rem 0.75rem;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:hover td { background: var(--surface2); }
+
+  .compare-table td:first-child {
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .good { color: var(--accent4) !important; }
+  .bad  { color: var(--accent3) !important; }
+  .mid  { color: #ffd740 !important; }
+
+  /* ── DENSITY CONTROL DIAGRAM ── */
+  .density-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .density-box {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .density-box canvas { display: block; margin: 0 auto 0.5rem; }
+
+  .density-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+
+  .density-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  @media (max-width: 600px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .vs-badge { transform: rotate(90deg); }
+    .gaussian-anatomy { grid-template-columns: 1fr; }
+    .density-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipe-step { border-radius: 10px !important; }
+    .pipe-step + .pipe-step::before { content: '▼'; left: 50%; top: -0.6rem; transform: translateX(-50%); }
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<header>
+  <span class="tag">Visual Learning Guide · Stage 1</span>
+  <h1>3D Gaussian Splatting</h1>
+  <p class="subtitle">Building intuition from the ground up</p>
+</header>
+
+<div class="container">
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 1 — THE CORE PROBLEM
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <span class="section-label">Concept 01</span>
+    <h2>The Problem: Reconstructing 3D from Photos</h2>
+    <p>You have a set of 2D photos taken around an object. You want to synthesize <em>any</em> new viewpoint — not just the ones you captured. Two fundamentally different philosophies emerged to solve this.</p>
+
+    <div class="diagram-card">
+      <div class="diagram-title">NeRF vs 3DGS — Fundamental Approach</div>
+      <div class="compare-grid">
+
+        <!-- NERF -->
+        <div class="compare-box nerf">
+          <canvas id="nerfCanvas" width="180" height="140"></canvas>
+          <div class="compare-title">NeRF</div>
+          <p class="compare-desc">Neural Radiance Field<br><br>Scene = black box neural net.<br>Shoot rays, query network<br>at thousands of points,<br>accumulate color + density.</p>
+        </div>
+
+        <div class="vs-badge">VS</div>
+
+        <!-- 3DGS -->
+        <div class="compare-box dgs">
+          <canvas id="dgsCanvas" width="180" height="140"></canvas>
+          <div class="compare-title">3DGS</div>
+          <p class="compare-desc">3D Gaussian Splatting<br><br>Scene = explicit fuzzy blobs.<br>Place millions of Gaussians,<br>project them onto screen,<br>blend front to back.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">The Soap Bubble Analogy</div>
+      <canvas id="bubbleCanvas" width="860" height="180" style="width:100%;max-width:860px;display:block;margin:0 auto;"></canvas>
+      <p class="caption" style="margin-top:0.75rem;">Each blob = one 3D Gaussian. Together they approximate the scene surface and appearance.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 2 — WHAT IS A GAUSSIAN
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <span class="section-label">Concept 02</span>
+    <h2>What Exactly Is a "Gaussian Blob"?</h2>
+    <p>Each blob is a 3D ellipsoid — like a stretched, rotated egg. It has 5 key properties that get <em>learned</em> during training.</p>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Anatomy of a Single Gaussian</div>
+      <div class="gaussian-anatomy">
+        <div class="anatomy-canvas-wrap">
+          <canvas id="gaussianCanvas" width="260" height="260"></canvas>
+          <p class="caption">An ellipsoidal Gaussian with<br>position, shape, color, and opacity</p>
+        </div>
+        <div class="anatomy-props">
+          <div class="prop-row">
+            <div class="prop-dot" style="background:#00e5ff"></div>
+            <div>
+              <span class="prop-name">Position (μ)</span>
+              <p class="prop-desc">Where in 3D space is the center of this blob? A single XYZ coordinate.</p>
+            </div>
+          </div>
+          <div class="prop-row">
+            <div class="prop-dot" style="background:#7c4dff"></div>
+            <div>
+              <span class="prop-name">Shape / Covariance (Σ)</span>
+              <p class="prop-desc">How fat, flat, or stretched is it? Can be a tiny sphere, a thin disk, or a long needle. Encoded as rotation + scale.</p>
+            </div>
+          </div>
+          <div class="prop-row">
+            <div class="prop-dot" style="background:#ffd740"></div>
+            <div>
+              <span class="prop-name">Opacity (α)</span>
+              <p class="prop-desc">How transparent is this blob? 0 = invisible ghost, 1 = fully solid.</p>
+            </div>
+          </div>
+          <div class="prop-row">
+            <div class="prop-dot" style="background:#69ff47"></div>
+            <div>
+              <span class="prop-name">Color (SH coefficients)</span>
+              <p class="prop-desc">What color does it appear? Stored as spherical harmonics so the color can change depending on view angle — capturing shiny/reflective surfaces.</p>
+            </div>
+          </div>
+          <div class="prop-row">
+            <div class="prop-dot" style="background:#ff6b6b"></div>
+            <div>
+              <span class="prop-name">Count</span>
+              <p class="prop-desc">A typical scene uses 1–6 million Gaussians. Each is independently optimized.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 3 — PROJECTION / SPLATTING
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <span class="section-label">Concept 03</span>
+    <h2>The "Splatting" Step — 3D → 2D</h2>
+    <p>To render a view, each 3D Gaussian is projected ("splatted") onto the 2D image plane. The 3D ellipsoid becomes a 2D ellipse. Then all ellipses are alpha-composited — like stacking transparent stickers, front to back.</p>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Projection: 3D Ellipsoid → 2D Ellipse → Pixel Color</div>
+      <div class="projection-wrap">
+        <canvas id="projCanvas" width="820" height="220" style="width:100%;max-width:820px;display:block;"></canvas>
+        <p class="caption">Camera projects 3D Gaussians → 2D splats are depth-sorted and alpha-blended</p>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Alpha Compositing — Blending Overlapping Splats</div>
+      <canvas id="blendCanvas" width="820" height="130" style="width:100%;max-width:820px;display:block;margin:0 auto;"></canvas>
+      <p class="caption" style="margin-top:0.75rem;">Front-to-back ordering: each splat contributes proportional to its opacity and remaining "transmittance"</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 4 — TRAINING PIPELINE
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <span class="section-label">Concept 04</span>
+    <h2>How It Learns — The Training Loop</h2>
+    <p>3DGS starts from a sparse point cloud (from COLMAP structure-from-motion), seeds Gaussians, then iteratively refines them against training photos.</p>
+
+    <div class="diagram-card">
+      <div class="diagram-title">Training Pipeline</div>
+      <div class="pipeline">
+        <div class="pipe-step">
+          <div class="pipe-icon">📷</div>
+          <span class="pipe-name">Input Photos</span>
+          <p class="pipe-desc">Multi-view images + camera poses from COLMAP</p>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">✦</div>
+          <span class="pipe-name">Init Points</span>
+          <p class="pipe-desc">Sparse point cloud → one Gaussian per point</p>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">🎥</div>
+          <span class="pipe-name">Rasterize</span>
+          <p class="pipe-desc">Project + splat Gaussians to render a view</p>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">⚡</div>
+          <span class="pipe-name">Loss</span>
+          <p class="pipe-desc">Compare render vs ground truth photo (L1 + SSIM)</p>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">∇</div>
+          <span class="pipe-name">Backprop</span>
+          <p class="pipe-desc">Gradients flow back to all Gaussian params</p>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">🌱</div>
+          <span class="pipe-name">Densify</span>
+          <p class="pipe-desc">Clone/split/prune Gaussians every ~100 steps</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Densification -->
+    <div class="diagram-card" style="margin-top:1rem;">
+      <div class="diagram-title">Adaptive Density Control — Clone, Split, Prune</div>
+      <div class="density-grid">
+        <div class="density-box">
+          <canvas id="cloneCanvas" width="160" height="120"></canvas>
+          <span class="density-label" style="color:var(--accent4)">Clone</span>
+          <p class="density-desc">Small Gaussian in under-covered area? Duplicate it and move copy toward gradient.</p>
+        </div>
+        <div class="density-box">
+          <canvas id="splitCanvas" width="160" height="120"></canvas>
+          <span class="density-label" style="color:var(--accent)">Split</span>
+          <p class="density-desc">Large Gaussian covering too much detail? Split into two smaller ones.</p>
+        </div>
+        <div class="density-box">
+          <canvas id="pruneCanvas" width="160" height="120"></canvas>
+          <span class="density-label" style="color:var(--accent3)">Prune</span>
+          <p class="density-desc">Near-zero opacity Gaussian? Delete it. Keeps scene lean.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 5 — COMPARISON TABLE
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <span class="section-label">Concept 05</span>
+    <h2>Why Does This Matter? The Numbers</h2>
+
+    <div class="diagram-card">
+      <div class="diagram-title">NeRF vs 3DGS — At a Glance</div>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Property</th>
+            <th>NeRF</th>
+            <th>3DGS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Representation</td>
+            <td class="mid">Implicit (MLP)</td>
+            <td class="good">Explicit (primitives)</td>
+          </tr>
+          <tr>
+            <td>Rendering speed</td>
+            <td class="bad">~1 FPS</td>
+            <td class="good">100–200+ FPS</td>
+          </tr>
+          <tr>
+            <td>Training time</td>
+            <td class="bad">12–48 hours</td>
+            <td class="good">30–60 min</td>
+          </tr>
+          <tr>
+            <td>Image quality</td>
+            <td class="mid">High</td>
+            <td class="good">Comparable / higher</td>
+          </tr>
+          <tr>
+            <td>Memory (stored)</td>
+            <td class="good">~10 MB (weights)</td>
+            <td class="bad">100 MB–2 GB</td>
+          </tr>
+          <tr>
+            <td>Editability</td>
+            <td class="bad">Very hard</td>
+            <td class="mid">Tractable</td>
+          </tr>
+          <tr>
+            <td>Mesh extraction</td>
+            <td class="mid">Indirect (marching cubes)</td>
+            <td class="bad">Not direct</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── helpers ──────────────────────────────────
+function ctx(id) {
+  const c = document.getElementById(id);
+  return c ? c.getContext('2d') : null;
+}
+
+function drawGaussian(cx, x, y, rx, ry, angle, color, alpha) {
+  cx.save();
+  cx.translate(x, y);
+  cx.rotate(angle);
+  const grad = cx.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry));
+  const [r, g, b] = color;
+  grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  cx.scale(rx / Math.max(rx,ry), ry / Math.max(rx,ry));
+  cx.beginPath();
+  cx.arc(0, 0, Math.max(rx, ry), 0, Math.PI * 2);
+  cx.fillStyle = grad;
+  cx.fill();
+  cx.restore();
+}
+
+// ── NeRF canvas ──────────────────────────────
+(function() {
+  const c = ctx('nerfCanvas');
+  if (!c) return;
+  c.fillStyle = '#0d1220';
+  c.fillRect(0, 0, 180, 140);
+
+  // Camera eye
+  c.fillStyle = '#ff6b6b';
+  c.beginPath(); c.arc(20, 70, 6, 0, Math.PI*2); c.fill();
+
+  // Scene box
+  c.strokeStyle = 'rgba(255,107,107,0.3)';
+  c.lineWidth = 1;
+  c.strokeRect(110, 20, 55, 100);
+  c.fillStyle = 'rgba(255,107,107,0.05)';
+  c.fillRect(110, 20, 55, 100);
+
+  // Rays
+  const rays = [25, 45, 65, 85, 105, 120];
+  rays.forEach((yEnd, i) => {
+    const yStart = 70;
+    c.beginPath();
+    c.moveTo(26, yStart);
+    const steps = 8;
+    for (let s = 0; s < steps; s++) {
+      const t = s / (steps - 1);
+      const px = 26 + t * (130 - 26);
+      const py = yStart + t * (yEnd - yStart);
+      if (s === 0) c.moveTo(px, py);
+      else c.lineTo(px, py);
+    }
+    c.strokeStyle = `rgba(255,107,107,${0.15 + i*0.1})`;
+    c.lineWidth = 0.8;
+    c.stroke();
+
+    // Query dots along ray
+    for (let d = 1; d <= 3; d++) {
+      const t = d / 4;
+      const px = 26 + t * (130 - 26);
+      const py = yStart + t * (yEnd - yStart);
+      c.beginPath();
+      c.arc(px, py, 2, 0, Math.PI*2);
+      c.fillStyle = 'rgba(255,107,107,0.6)';
+      c.fill();
+    }
+  });
+
+  // MLP label
+  c.fillStyle = 'rgba(255,107,107,0.15)';
+  c.fillRect(112, 55, 51, 30);
+  c.fillStyle = '#ff6b6b';
+  c.font = '600 9px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('MLP', 137, 74);
+})();
+
+// ── 3DGS canvas ──────────────────────────────
+(function() {
+  const c = ctx('dgsCanvas');
+  if (!c) return;
+  c.fillStyle = '#0d1220';
+  c.fillRect(0, 0, 180, 140);
+
+  // Camera
+  c.fillStyle = '#00e5ff';
+  c.beginPath(); c.arc(20, 70, 6, 0, Math.PI*2); c.fill();
+
+  // Gaussians in scene
+  const blobs = [
+    {x:110, y:35,  rx:18, ry:9,  a:0.5,  col:[0,229,255]},
+    {x:130, y:60,  rx:12, ry:18, a:0.6,  col:[124,77,255]},
+    {x:105, y:85,  rx:20, ry:8,  a:0.45, col:[105,255,71]},
+    {x:145, y:100, rx:10, ry:14, a:0.5,  col:[255,215,64]},
+    {x:155, y:45,  rx:8,  ry:8,  a:0.4,  col:[0,229,255]},
+    {x:120, y:115, rx:14, ry:7,  a:0.45, col:[255,107,107]},
+  ];
+
+  blobs.forEach(b => {
+    drawGaussian(c, b.x, b.y, b.rx, b.ry, Math.random(), b.col, b.a);
+  });
+
+  // Project lines from camera to blobs
+  blobs.slice(0, 3).forEach(b => {
+    c.beginPath();
+    c.moveTo(26, 70);
+    c.lineTo(b.x, b.y);
+    c.strokeStyle = 'rgba(0,229,255,0.15)';
+    c.lineWidth = 0.8;
+    c.stroke();
+  });
+})();
+
+// ── Soap bubble scene ─────────────────────────
+(function() {
+  const c = ctx('bubbleCanvas');
+  if (!c) return;
+  const W = 860, H = 180;
+  c.fillStyle = '#0d1220';
+  c.fillRect(0, 0, W, H);
+
+  // Phase 1: Photos
+  c.fillStyle = 'rgba(255,255,255,0.04)';
+  c.fillRect(10, 10, 180, H-20);
+  c.strokeStyle = 'rgba(0,229,255,0.2)';
+  c.strokeRect(10, 10, 180, H-20);
+
+  // Mini camera icons
+  [[50,50],[50,130],[130,90]].forEach(([x,y]) => {
+    c.fillStyle = 'rgba(0,229,255,0.6)';
+    c.fillRect(x-10, y-7, 20, 14);
+    c.beginPath(); c.arc(x, y, 4, 0, Math.PI*2);
+    c.fillStyle = '#0d1220'; c.fill();
+  });
+
+  c.fillStyle = 'rgba(0,229,255,0.5)';
+  c.font = '500 9px Syne, sans-serif';
+  c.textAlign = 'center';
+  c.fillText('INPUT PHOTOS', 100, H-18);
+
+  // Arrow
+  c.beginPath();
+  c.moveTo(200, H/2); c.lineTo(230, H/2);
+  c.moveTo(224, H/2-5); c.lineTo(230, H/2); c.lineTo(224, H/2+5);
+  c.strokeStyle = 'rgba(255,255,255,0.3)';
+  c.lineWidth = 1.5;
+  c.stroke();
+
+  // Phase 2: Sparse cloud
+  c.fillStyle = 'rgba(255,255,255,0.03)';
+  c.fillRect(235, 10, 170, H-20);
+  c.strokeStyle = 'rgba(255,215,64,0.2)';
+  c.strokeRect(235, 10, 170, H-20);
+
+  const sparsePoints = [];
+  for (let i = 0; i < 30; i++) {
+    const px = 255 + Math.random()*130;
+    const py = 25  + Math.random()*(H-50);
+    sparsePoints.push([px, py]);
+    c.beginPath(); c.arc(px, py, 1.5, 0, Math.PI*2);
+    c.fillStyle = 'rgba(255,215,64,0.6)'; c.fill();
+  }
+
+  c.fillStyle = 'rgba(255,215,64,0.5)';
+  c.font = '500 9px Syne, sans-serif';
+  c.textAlign = 'center';
+  c.fillText('SPARSE POINTS', 320, H-18);
+
+  // Arrow
+  c.beginPath();
+  c.moveTo(415, H/2); c.lineTo(445, H/2);
+  c.moveTo(439, H/2-5); c.lineTo(445, H/2); c.lineTo(439, H/2+5);
+  c.strokeStyle = 'rgba(255,255,255,0.3)';
+  c.lineWidth = 1.5;
+  c.stroke();
+
+  // Phase 3: Gaussians
+  c.fillStyle = 'rgba(255,255,255,0.03)';
+  c.fillRect(450, 10, 200, H-20);
+  c.strokeStyle = 'rgba(124,77,255,0.3)';
+  c.strokeRect(450, 10, 200, H-20);
+
+  const gBlobs = [
+    {x:490, y:50,  rx:22, ry:9,  ang:0.4,  col:[0,229,255],   a:0.55},
+    {x:530, y:80,  rx:14, ry:22, ang:-0.2, col:[124,77,255],  a:0.6},
+    {x:480, y:110, rx:25, ry:10, ang:0.6,  col:[105,255,71],  a:0.5},
+    {x:560, y:50,  rx:10, ry:16, ang:0.1,  col:[255,215,64],  a:0.5},
+    {x:610, y:90,  rx:18, ry:9,  ang:-0.3, col:[0,229,255],   a:0.45},
+    {x:595, y:130, rx:12, ry:20, ang:0.5,  col:[255,107,107], a:0.5},
+    {x:545, y:130, rx:20, ry:8,  ang:-0.1, col:[124,77,255],  a:0.45},
+    {x:625, y:50,  rx:8,  ry:8,  ang:0,    col:[105,255,71],  a:0.4},
+  ];
+
+  gBlobs.forEach(b => drawGaussian(c, b.x, b.y, b.rx, b.ry, b.ang, b.col, b.a));
+
+  c.fillStyle = 'rgba(124,77,255,0.6)';
+  c.font = '500 9px Syne, sans-serif';
+  c.textAlign = 'center';
+  c.fillText('GAUSSIAN BLOBS', 550, H-18);
+
+  // Arrow
+  c.beginPath();
+  c.moveTo(660, H/2); c.lineTo(690, H/2);
+  c.moveTo(684, H/2-5); c.lineTo(690, H/2); c.lineTo(684, H/2+5);
+  c.strokeStyle = 'rgba(255,255,255,0.3)';
+  c.lineWidth = 1.5;
+  c.stroke();
+
+  // Phase 4: Rendered image
+  c.fillStyle = 'rgba(255,255,255,0.03)';
+  c.fillRect(695, 10, 155, H-20);
+  c.strokeStyle = 'rgba(105,255,71,0.3)';
+  c.strokeRect(695, 10, 155, H-20);
+
+  // Simulated rendered image with gradient blobs on a dark bg
+  const miniBlobs = [
+    {x:730, y:55,  rx:20, ry:8,  ang:0.4,  col:[0,229,255],  a:0.7},
+    {x:760, y:80,  rx:12, ry:18, ang:-0.2, col:[124,77,255], a:0.75},
+    {x:720, y:105, rx:22, ry:9,  ang:0.6,  col:[105,255,71], a:0.65},
+    {x:795, y:55,  rx:8,  ry:14, ang:0.1,  col:[255,215,64], a:0.65},
+    {x:820, y:95,  rx:15, ry:8,  ang:-0.3, col:[0,229,255],  a:0.6},
+    {x:808, y:130, rx:10, ry:17, ang:0.5,  col:[255,107,107],a:0.65},
+  ];
+  miniBlobs.forEach(b => drawGaussian(c, b.x, b.y, b.rx, b.ry, b.ang, b.col, b.a));
+
+  c.fillStyle = 'rgba(105,255,71,0.5)';
+  c.font = '500 9px Syne, sans-serif';
+  c.textAlign = 'center';
+  c.fillText('NOVEL VIEW', 772, H-18);
+})();
+
+// ── Gaussian anatomy ──────────────────────────
+(function() {
+  const c = ctx('gaussianCanvas');
+  if (!c) return;
+  c.fillStyle = '#0d1220';
+  c.fillRect(0, 0, 260, 260);
+
+  const cx = 130, cy = 130;
+
+  // Outer glow
+  const outerGrad = c.createRadialGradient(cx, cy, 0, cx, cy, 100);
+  outerGrad.addColorStop(0, 'rgba(124,77,255,0.0)');
+  outerGrad.addColorStop(1, 'rgba(124,77,255,0.05)');
+  c.fillStyle = outerGrad;
+  c.fillRect(0, 0, 260, 260);
+
+  // Main ellipse (stretched on x)
+  c.save();
+  c.translate(cx, cy);
+  c.rotate(-0.35);
+
+  // Gaussian falloff layers
+  [[90,50,0.12],[75,42,0.2],[58,33,0.3],[42,24,0.4],[26,15,0.55],[14,8,0.7]].forEach(([rx,ry,a]) => {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, `rgba(0,229,255,${a})`);
+    g.addColorStop(1, `rgba(0,229,255,0)`);
+    c.save(); c.scale(1, ry/rx);
+    c.beginPath(); c.arc(0, 0, rx, 0, Math.PI*2);
+    c.fillStyle = g; c.fill();
+    c.restore();
+  });
+
+  // Axes
+  c.strokeStyle = 'rgba(255,255,255,0.15)';
+  c.lineWidth = 1;
+  c.setLineDash([4,3]);
+  c.beginPath(); c.moveTo(-95, 0); c.lineTo(95, 0); c.stroke();
+  c.beginPath(); c.moveTo(0, -55); c.lineTo(0, 55); c.stroke();
+  c.setLineDash([]);
+
+  // Scale arrows
+  c.strokeStyle = 'rgba(124,77,255,0.8)';
+  c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(0, 0); c.lineTo(88, 0);
+  c.moveTo(83, -4); c.lineTo(88, 0); c.lineTo(83, 4); c.stroke();
+
+  c.strokeStyle = 'rgba(255,215,64,0.8)';
+  c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -48);
+  c.moveTo(-4, -43); c.lineTo(0, -48); c.lineTo(4, -43); c.stroke();
+
+  // Labels
+  c.fillStyle = 'rgba(124,77,255,0.9)';
+  c.font = '600 9px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('scale_x', 44, 12);
+
+  c.fillStyle = 'rgba(255,215,64,0.9)';
+  c.fillText('scale_y', 22, -30);
+
+  c.restore();
+
+  // Center dot
+  c.beginPath(); c.arc(cx, cy, 3.5, 0, Math.PI*2);
+  c.fillStyle = '#00e5ff'; c.fill();
+
+  // Position label
+  c.fillStyle = 'rgba(0,229,255,0.8)';
+  c.font = '600 9px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('position (μ)', cx, cy + 18);
+
+  // Opacity ring
+  c.beginPath();
+  c.arc(cx, cy, 100, 0, Math.PI * 2);
+  c.strokeStyle = 'rgba(255,107,107,0.2)';
+  c.lineWidth = 1;
+  c.setLineDash([3,5]);
+  c.stroke();
+  c.setLineDash([]);
+
+  c.fillStyle = 'rgba(255,107,107,0.6)';
+  c.font = '600 8px Space Mono, monospace';
+  c.fillText('opacity boundary', cx, 240);
+})();
+
+// ── Projection canvas ─────────────────────────
+(function() {
+  const c = ctx('projCanvas');
+  if (!c) return;
+  const W = 820, H = 220;
+  c.fillStyle = '#0d1220';
+  c.fillRect(0, 0, W, H);
+
+  // 3D space (left)
+  c.fillStyle = 'rgba(255,255,255,0.02)';
+  c.fillRect(10, 10, 280, H-20);
+  c.strokeStyle = 'rgba(124,77,255,0.2)';
+  c.strokeRect(10, 10, 280, H-20);
+  c.fillStyle = 'rgba(124,77,255,0.4)';
+  c.font = '600 9px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('3D WORLD SPACE', 150, 28);
+
+  // 3D ellipsoids
+  const blobs3d = [
+    {x:80,  y:80,  rx:35, ry:15, ang:0.5,  col:[0,229,255],  a:0.6},
+    {x:180, y:120, rx:20, ry:35, ang:-0.3, col:[124,77,255], a:0.65},
+    {x:240, y:70,  rx:28, ry:12, ang:0.2,  col:[105,255,71], a:0.55},
+    {x:120, y:160, rx:15, ry:25, ang:0.7,  col:[255,215,64], a:0.6},
+  ];
+  blobs3d.forEach(b => drawGaussian(c, b.x, b.y, b.rx, b.ry, b.ang, b.col, b.a));
+
+  // Camera (middle)
+  const camX = 385, camY = H/2;
+  c.fillStyle = 'rgba(255,255,255,0.05)';
+  c.fillRect(340, 10, 90, H-20);
+  c.strokeStyle = 'rgba(255,255,255,0.1)';
+  c.strokeRect(340, 10, 90, H-20);
+
+  c.save();
+  c.translate(camX, camY);
+  // Camera body
+  c.fillStyle = 'rgba(0,229,255,0.2)';
+  c.strokeStyle = 'rgba(0,229,255,0.6)';
+  c.lineWidth = 1.5;
+  c.fillRect(-18, -14, 36, 28); c.strokeRect(-18, -14, 36, 28);
+  // Lens
+  c.beginPath(); c.arc(0, 0, 9, 0, Math.PI*2);
+  c.fillStyle = 'rgba(0,229,255,0.4)'; c.fill();
+  c.stroke();
+  c.restore();
+
+  c.fillStyle = 'rgba(0,229,255,0.4)';
+  c.font = '600 8px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('CAMERA', camX, 28);
+
+  // Projection lines from blobs to camera
+  blobs3d.forEach(b => {
+    c.beginPath();
+    c.moveTo(b.x, b.y);
+    c.lineTo(camX - 18, camY);
+    c.strokeStyle = 'rgba(255,255,255,0.08)';
+    c.lineWidth = 0.8;
+    c.stroke();
+  });
+
+  // Image plane (right of camera)
+  c.fillStyle = 'rgba(255,255,255,0.02)';
+  c.fillRect(460, 10, 180, H-20);
+  c.strokeStyle = 'rgba(0,229,255,0.2)';
+  c.strokeRect(460, 10, 180, H-20);
+  c.fillStyle = 'rgba(0,229,255,0.4)';
+  c.font = '600 9px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('2D IMAGE PLANE', 550, 28);
+
+  // 2D projected splats
+  const splats2d = [
+    {x:500, y:75,  rx:30, ry:10, ang:0.5,  col:[0,229,255],  a:0.65},
+    {x:560, y:115, rx:14, ry:28, ang:-0.3, col:[124,77,255], a:0.7},
+    {x:600, y:68,  rx:22, ry:8,  ang:0.2,  col:[105,255,71], a:0.6},
+    {x:525, y:155, rx:10, ry:20, ang:0.7,  col:[255,215,64], a:0.65},
+  ];
+  splats2d.forEach(b => drawGaussian(c, b.x, b.y, b.rx, b.ry, b.ang, b.col, b.a));
+
+  // Lines from camera to image plane
+  splats2d.forEach(b => {
+    c.beginPath();
+    c.moveTo(camX + 18, camY);
+    c.lineTo(b.x, b.y);
+    c.strokeStyle = 'rgba(255,255,255,0.06)';
+    c.lineWidth = 0.8;
+    c.stroke();
+  });
+
+  // Final rendered image (far right)
+  c.fillStyle = 'rgba(255,255,255,0.02)';
+  c.fillRect(660, 10, 150, H-20);
+  c.strokeStyle = 'rgba(105,255,71,0.2)';
+  c.strokeRect(660, 10, 150, H-20);
+  c.fillStyle = 'rgba(105,255,71,0.4)';
+  c.font = '600 9px Space Mono, monospace';
+  c.textAlign = 'center';
+  c.fillText('RENDERED PIXEL', 735, 28);
+
+  // Composited result
+  const finalBlobs = [
+    {x:695, y:70,  rx:25, ry:9,  ang:0.5, col:[0,229,255],  a:0.7},
+    {x:740, y:110, rx:12, ry:24, ang:-0.3,col:[124,77,255], a:0.75},
+    {x:775, y:65,  rx:18, ry:7,  ang:0.2, col:[105,255,71], a:0.65},
+    {x:712, y:150, rx:9,  ry:17, ang:0.7, col:[255,215,64], a:0.7},
+  ];
+  finalBlobs.forEach(b => drawGaussian(c, b.x, b.y, b.rx, b.ry, b.ang, b.col, b.a));
+
+  // Arrow between image plane and final
+  c.beginPath();
+  c.moveTo(648, H/2); c.lineTo(656, H/2);
+  c.moveTo(651, H/2-4); c.lineTo(656, H/2); c.lineTo(651, H/2+4);
+  c.strokeStyle = 'rgba(255,255,255,0.3)';
+  c.lineWidth = 1.5;
+  c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.4)';
+  c.font = '600 7px Space Mono';
+  c.fillText('blend', 652, H/2 - 7);
+})();
+
+// ── Alpha blend canvas ────────────────────────
+(function() {
+  const c = ctx('blendCanvas');
+  if (!c) return;
+  const W = 820, H = 130;
+  c.fillStyle = '#0d1220';
+  c.fillRect(0, 0, W, H);
+
+  const layers = [
+    {col:[255,107,107], a:0.5,  label:'Splat A (front)', note:'α=0.5'},
+    {col:[0,229,255],   a:0.6,  label:'Splat B',         note:'α=0.6'},
+    {col:[124,77,255],  a:0.7,  label:'Splat C',         note:'α=0.7'},
+    {col:[105,255,71],  a:0.55, label:'Splat D (back)',  note:'α=0.55'},
+  ];
+
+  const boxW = 140, boxH = 60, startX = 30, y = 35, gap = 50;
+
+  layers.forEach((l, i) => {
+    const x = startX + i * (boxW + gap);
+
+    // Box background
+    c.fillStyle = 'rgba(255,255,255,0.03)';
+    c.fillRect(x, y, boxW, boxH);
+
+    // Gaussian splat preview
+    drawGaussian(c, x + boxW/2, y + boxH/2, 55, 22, 0.2, l.col, l.a);
+
+    // Border
+    c.strokeStyle = `rgba(${l.col.join(',')},0.4)`;
+    c.lineWidth = 1;
+    c.strokeRect(x, y, boxW, boxH);
+
+    // Label
+    c.fillStyle = `rgba(${l.col.join(',')},0.8)`;
+    c.font = '600 8px Space Mono, monospace';
+    c.textAlign = 'center';
+    c.fillText(l.label, x + boxW/2, y - 8);
+    c.fillText(l.note, x + boxW/2, y + boxH + 14);
+
+    // Arrow (not after last)
+    if (i < layers.length - 1) {
+      const ax = x + boxW + 10, ay = y + boxH/2;
+      c.beginPath();
+      c.moveTo(ax, ay); c.lineTo(ax + gap - 12, ay);
+      c.moveTo(ax + gap - 17, ay-4); c.lineTo(ax+gap-12, ay); c.lineTo(ax+gap-17, ay+4);
+      c.strokeStyle = 'rgba(255,255,255,0.25)';
+      c.lineWidth = 1.2;
+      c.stroke();
+      c.fillStyle = 'rgba(255,255,255,0.3)';
+      c.font = '7px Space Mono';
+      c.textAlign = 'center';
+      c.fillText('+', ax + (gap-12)/2, ay - 5);
+    }
+  });
+
+  // Final result arrow
+  const finalX = startX + layers.length * (boxW + gap) - gap + 15;
+  c.beginPath();
+  c.moveTo(finalX, y + boxH/2); c.lineTo(finalX + 35, y + boxH/2);
+  c.moveTo(finalX + 30, y+boxH/2-4); c.lineTo(finalX+35, y+boxH/2); c.lineTo(finalX+30, y+boxH/2+4);
+  c.strokeStyle = 'rgba(255,255,255,0.3)';
+  c.lineWidth = 1.5; c.stroke();
+
+  // Final pixel
+  const finalPx = finalX + 42;
+  const mixedGrad = c.createRadialGradient(finalPx, y+boxH/2, 0, finalPx, y+boxH/2, 22);
+  mixedGrad.addColorStop(0, 'rgba(200,180,255,0.9)');
+  mixedGrad.addColorStop(1, 'rgba(100,200,255,0.0)');
+  c.beginPath(); c.arc(finalPx, y+boxH/2, 22, 0, Math.PI*2);
+  c.fillStyle = mixedGrad; c.fill();
+
+  c.fillStyle = 'rgba(255,255,255,0.7)';
+  c.font = '600 7px Space Mono'; c.textAlign = 'center';
+  c.fillText('PIXEL', finalPx, y+boxH/2+32);
+  c.fillText('COLOR', finalPx, y+boxH/2+42);
+})();
+
+// ── Density control canvases ──────────────────
+function drawDensityClone(id) {
+  const c = ctx(id);
+  if (!c) return;
+  c.fillStyle = '#131929'; c.fillRect(0,0,160,120);
+
+  // Original small Gaussian
+  drawGaussian(c, 60, 60, 14, 7, 0.3, [105,255,71], 0.6);
+  c.fillStyle = 'rgba(105,255,71,0.8)';
+  c.font = '600 7px Space Mono'; c.textAlign = 'center';
+  c.fillText('original', 60, 85);
+
+  // Arrow
+  c.beginPath(); c.moveTo(82, 60); c.lineTo(100, 60);
+  c.moveTo(95,55); c.lineTo(100,60); c.lineTo(95,65);
+  c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth=1; c.stroke();
+
+  // Clone
+  drawGaussian(c, 120, 55, 14, 7, 0.3, [105,255,71], 0.5);
+  c.strokeStyle = 'rgba(105,255,71,0.4)';
+  c.setLineDash([2,3]);
+  c.beginPath(); c.arc(120,55,14,0,Math.PI*2); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle = 'rgba(105,255,71,0.6)';
+  c.fillText('clone', 120, 78);
+}
+
+function drawDensitySplit(id) {
+  const c = ctx(id);
+  if (!c) return;
+  c.fillStyle = '#131929'; c.fillRect(0,0,160,120);
+
+  // Large Gaussian
+  drawGaussian(c, 55, 60, 30, 14, 0.2, [0,229,255], 0.5);
+  c.fillStyle = 'rgba(0,229,255,0.7)';
+  c.font = '600 7px Space Mono'; c.textAlign='center';
+  c.fillText('large', 55, 85);
+
+  // Arrow
+  c.beginPath(); c.moveTo(90,60); c.lineTo(100,60);
+  c.moveTo(95,55); c.lineTo(100,60); c.lineTo(95,65);
+  c.strokeStyle='rgba(255,255,255,0.3)'; c.lineWidth=1; c.stroke();
+
+  // Two small
+  drawGaussian(c, 118, 48, 14, 8, 0.3, [0,229,255], 0.55);
+  drawGaussian(c, 130, 72, 14, 8, -0.2,[0,229,255], 0.55);
+  c.fillStyle = 'rgba(0,229,255,0.6)';
+  c.fillText('2 small', 124, 92);
+}
+
+function drawDensityPrune(id) {
+  const c = ctx(id);
+  if (!c) return;
+  c.fillStyle = '#131929'; c.fillRect(0,0,160,120);
+
+  // Ghost Gaussian (near zero opacity)
+  drawGaussian(c, 60, 55, 22, 11, 0.4, [255,107,107], 0.12);
+  c.strokeStyle = 'rgba(255,107,107,0.3)';
+  c.setLineDash([3,4]);
+  c.save(); c.translate(60,55); c.rotate(0.4); c.scale(1,11/22);
+  c.beginPath(); c.arc(0,0,22,0,Math.PI*2); c.stroke();
+  c.restore();
+  c.setLineDash([]);
+  c.fillStyle = 'rgba(255,107,107,0.5)';
+  c.font = '600 7px Space Mono'; c.textAlign='center';
+  c.fillText('α ≈ 0', 60, 80);
+
+  // X mark
+  c.strokeStyle = 'rgba(255,107,107,0.7)';
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(45,40); c.lineTo(75,70); c.stroke();
+  c.beginPath(); c.moveTo(75,40); c.lineTo(45,70); c.stroke();
+
+  // Arrow
+  c.beginPath(); c.moveTo(88,55); c.lineTo(104,55);
+  c.moveTo(99,50); c.lineTo(104,55); c.lineTo(99,60);
+  c.strokeStyle='rgba(255,255,255,0.3)'; c.lineWidth=1; c.stroke();
+
+  // Deleted
+  c.fillStyle = 'rgba(255,107,107,0.2)';
+  c.fillRect(110,40,40,30);
+  c.strokeStyle = 'rgba(255,107,107,0.4)';
+  c.strokeRect(110,40,40,30);
+  c.fillStyle='rgba(255,107,107,0.6)';
+  c.font='600 8px Space Mono'; c.textAlign='center';
+  c.fillText('gone', 130,58);
+}
+
+drawDensityClone('cloneCanvas');
+drawDensitySplit('splitCanvas');
+drawDensityPrune('pruneCanvas');
+</script>
+</body>
+</html>

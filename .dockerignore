@@ -1,0 +1,72 @@
+# Build artifacts
+target/
+**/*.rs.bk
+**/*.pdb
+*.o
+*.so
+*.a
+
+# Development files
+.git/
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (keep README.md for reference)
+*.md
+!README.md
+docs/
+
+# Test files
+tests/
+testdata/
+examples/
+
+# CI/CD
+.copilot-tracking/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+flycheck*/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Cache directories
+.cache/
+
+# Docker files (don't need these in the build context)
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Scripts not needed in container
+scripts/benchmark-*.sh
+scripts/download-*.sh
+scripts/generate-*.sh
+scripts/e2e-*.sh
+scripts/run-*.sh
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE and workspace files
+.copilot/
+*.workspace

@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DGS Stage 3 — Technical Implementation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Unbounded:wght@400;700;900&display=swap');
+
+:root {
+  --bg:     #04060c;
+  --s1:     #090e1a;
+  --s2:     #0e1525;
+  --s3:     #141d30;
+  --s4:     #1a2438;
+  --cuda:   #76b900;   /* NVIDIA green */
+  --metal:  #a8a9ad;   /* Apple silver */
+  --metal2: #ff6a00;   /* Apple warm */
+  --shared: #00d4ff;   /* both */
+  --warn:   #ffb700;
+  --red:    #ff3e5e;
+  --text:   #cdd5e8;
+  --muted:  #6b7a99;
+  --border: rgba(255,255,255,0.055);
+  --glow-cuda:  rgba(118,185,0,0.15);
+  --glow-metal: rgba(255,106,0,0.12);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  overflow-x: hidden;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* scanline texture */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none; z-index: 999;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(4,6,12,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: .6rem 1.5rem;
+  display: flex; align-items: center; gap: 1.5rem;
+  overflow-x: auto;
+}
+.nav-brand {
+  font-weight: 900;
+  font-family: 'Unbounded', sans-serif;
+  font-size: .7rem;
+  color: var(--shared);
+  white-space: nowrap;
+  letter-spacing: .05em;
+}
+.nav-links { display: flex; gap: 1rem; }
+.nav-links a {
+  font-size: .6rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color .2s;
+  white-space: nowrap;
+}
+.nav-links a:hover { color: var(--shared); }
+
+/* ── HEADER ── */
+header {
+  padding: 3.5rem 2rem 2.5rem;
+  max-width: 1080px; margin: 0 auto;
+  position: relative;
+}
+.stage-badge {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(0,212,255,0.08);
+  border: 1px solid rgba(0,212,255,0.25);
+  border-radius: 100px;
+  padding: .3rem 1rem;
+  font-size: .6rem;
+  letter-spacing: .2em;
+  color: var(--shared);
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+}
+h1 {
+  font-family: 'Unbounded', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 900;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #fff 0%, var(--shared) 45%, var(--cuda) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.subtitle { color: var(--muted); margin-top: .6rem; font-size: .8rem; }
+
+/* ── LAYOUT ── */
+.container { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+.section { margin-bottom: 4rem; }
+
+.eyebrow {
+  font-size: .58rem;
+  letter-spacing: .25em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: .4rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.eyebrow::after { content:''; flex:1; height:1px; background:var(--border); }
+
+h2 {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: .6rem;
+}
+h3 { font-size: .85rem; font-weight: 700; color: var(--shared); margin-bottom: .4rem; }
+p { color: var(--muted); line-height: 1.8; font-size: .82rem; margin-bottom: .6rem; font-weight: 400; }
+strong { color: var(--text); }
+
+/* ── PLATFORM BADGES ── */
+.badge-cuda  { display:inline-flex;align-items:center;gap:.3rem;background:rgba(118,185,0,.12);border:1px solid rgba(118,185,0,.35);border-radius:4px;padding:.15rem .5rem;font-size:.6rem;color:var(--cuda);font-weight:700; }
+.badge-metal { display:inline-flex;align-items:center;gap:.3rem;background:rgba(168,169,173,.1);border:1px solid rgba(168,169,173,.3);border-radius:4px;padding:.15rem .5rem;font-size:.6rem;color:var(--metal);font-weight:700; }
+.badge-both  { display:inline-flex;align-items:center;gap:.3rem;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);border-radius:4px;padding:.15rem .5rem;font-size:.6rem;color:var(--shared);font-weight:700; }
+.badges { display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  position: relative;
+  overflow: hidden;
+}
+.card.cuda-card  { border-color: rgba(118,185,0,.2);  box-shadow: 0 0 40px var(--glow-cuda); }
+.card.metal-card { border-color: rgba(255,106,0,.15); box-shadow: 0 0 40px var(--glow-metal); }
+.card.both-card  { border-color: rgba(0,212,255,.15); }
+
+.card-bar {
+  position: absolute; top:0; left:0; right:0; height:2px;
+}
+.cuda-bar  { background: linear-gradient(90deg, var(--cuda), #a8d400); }
+.metal-bar { background: linear-gradient(90deg, var(--metal2), var(--metal)); }
+.both-bar  { background: linear-gradient(90deg, var(--shared), var(--cuda), var(--metal2)); }
+
+.card-label {
+  font-size: .58rem;
+  letter-spacing: .15em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+/* ── CODE BLOCKS ── */
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .5rem 1rem;
+  border-radius: 10px 10px 0 0;
+  font-size: .6rem;
+  letter-spacing: .1em;
+  font-weight: 700;
+}
+.code-header.cuda  { background: rgba(118,185,0,.15);  color: var(--cuda); }
+.code-header.metal { background: rgba(255,106,0,.15);  color: var(--metal2); }
+.code-header.py    { background: rgba(0,212,255,.12);  color: var(--shared); }
+.code-header.cpp   { background: rgba(255,183,0,.12);  color: var(--warn); }
+
+.code-block {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  padding: 1.2rem 1.2rem;
+  overflow-x: auto;
+  font-size: .72rem;
+  line-height: 1.75;
+  white-space: pre;
+  tab-size: 2;
+}
+.code-block.standalone {
+  border-top: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* syntax colors */
+.kw  { color: #cc99ff; }
+.kw2 { color: #79aaff; }
+.fn  { color: #79d9ff; }
+.str { color: #a8ff82; }
+.num { color: #ffcc66; }
+.cmt { color: #4a5568; font-style: italic; }
+.typ { color: #ff9f7a; }
+.mac { color: #ff79c6; }
+.var { color: var(--text); }
+.op  { color: #6ee7b7; }
+
+/* ── TWO-COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+.three-col { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+
+/* ── CANVAS ── */
+canvas { display: block; }
+.caption { font-size: .58rem; color: var(--muted); text-align: center; margin-top: .5rem; letter-spacing: .04em; line-height: 1.6; }
+
+/* ── COMPARISON TABLE ── */
+.comp-table { width:100%; border-collapse:collapse; font-size: .72rem; }
+.comp-table th { font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); padding:.5rem .75rem; text-align:left; border-bottom:1px solid var(--border); }
+.comp-table td { padding:.5rem .75rem; color:var(--muted); border-bottom:1px solid var(--border); vertical-align:top; }
+.comp-table tr:last-child td { border-bottom:none; }
+.comp-table td:first-child { color:var(--text); font-weight:600; }
+.good { color: var(--cuda) !important; }
+.ok   { color: var(--warn) !important; }
+.bad  { color: var(--red)  !important; }
+
+/* ── PIPELINE STEPS ── */
+.pipe-step {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .8rem 1rem;
+  margin-bottom: .4rem;
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+}
+.pipe-num {
+  font-family: 'Unbounded', sans-serif;
+  font-size: .65rem;
+  font-weight: 900;
+  color: var(--bg);
+  background: var(--shared);
+  border-radius: 4px;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pipe-num.cuda-num  { background: var(--cuda); }
+.pipe-num.metal-num { background: var(--metal2); }
+.pipe-body { font-size: .78rem; color: var(--muted); line-height: 1.6; }
+.pipe-body strong { color: var(--text); }
+
+/* ── PERF BARS ── */
+.perf-row { display:flex; align-items:center; gap:.75rem; margin-bottom:.4rem; }
+.perf-label { font-size:.65rem; color:var(--muted); min-width:160px; }
+.perf-bar-wrap { flex:1; background:var(--s3); border-radius:4px; height:16px; overflow:hidden; }
+.perf-bar { height:100%; border-radius:4px; display:flex; align-items:center; padding-left:.4rem; }
+.perf-bar span { font-size:.6rem; font-weight:700; color:rgba(0,0,0,0.7); }
+.perf-val { font-size:.65rem; color:var(--text); min-width:50px; text-align:right; font-weight:700; }
+
+/* ── NOTE BOX ── */
+.note {
+  background: rgba(255,183,0,.07);
+  border: 1px solid rgba(255,183,0,.2);
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  font-size: .75rem;
+  color: var(--warn);
+  line-height: 1.6;
+  margin: .75rem 0;
+}
+.note::before { content: '⚠  '; font-weight: 700; }
+
+.tip {
+  background: rgba(0,212,255,.06);
+  border: 1px solid rgba(0,212,255,.2);
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  font-size: .75rem;
+  color: var(--shared);
+  line-height: 1.6;
+  margin: .75rem 0;
+}
+.tip::before { content: '💡  '; }
+
+@media(max-width:700px){
+  .two-col,.three-col { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">3DGS · STAGE 3</div>
+  <div class="nav-links">
+    <a href="#arch">Architecture</a>
+    <a href="#cuda-kernel">CUDA Kernels</a>
+    <a href="#metal-kernel">Metal Kernels</a>
+    <a href="#python">Python Layer</a>
+    <a href="#memory">Memory</a>
+    <a href="#perf">Performance</a>
+    <a href="#setup">Setup</a>
+  </div>
+</nav>
+
+<header>
+  <div class="stage-badge">⬡ Stage 3 · Technical Implementation</div>
+  <h1>Building 3DGS<br>Under the Hood</h1>
+  <p class="subtitle">Real CUDA kernels · Metal shaders · Python bindings · M3 Apple Silicon paths</p>
+</header>
+
+<div class="container">
+
+<!-- ═══════════════════════════════════════════
+     SECTION 0 — ARCHITECTURE OVERVIEW
+═══════════════════════════════════════════ -->
+<div class="section" id="arch">
+  <div class="eyebrow">Section 01</div>
+  <h2>System Architecture</h2>
+  <p>3DGS is a three-layer system. The <strong>Python training loop</strong> orchestrates everything. The <strong>C++/CUDA or C++/Metal rasterizer</strong> does the heavy lifting. PyTorch's autograd connects them for gradient flow.</p>
+
+  <div class="card both-card">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">System Stack — Top to Bottom</div>
+    <canvas id="cArch" width="1000" height="300" style="width:100%;max-width:1000px;"></canvas>
+    <p class="caption">Python is the orchestrator · C++/CUDA or Metal handles the render · autograd bridges the gradient path</p>
+  </div>
+
+  <div class="two-col">
+    <div class="card cuda-card">
+      <div class="card-bar cuda-bar"></div>
+      <div class="card-label">NVIDIA CUDA Path</div>
+      <div class="badges"><span class="badge-cuda">CUDA 11.8+</span><span class="badge-cuda">cuBLAS</span><span class="badge-cuda">Thrust</span></div>
+      <p>The original implementation. Uses custom CUDA kernels for forward/backward rasterization, Thrust for radix sort, and cuBLAS for matrix ops. Runs on any NVIDIA GPU with compute capability ≥ 7.0 (Volta+).</p>
+      <div class="pipe-step"><div class="pipe-num cuda-num">✓</div><div class="pipe-body">All RTX cards, A100, H100, datacenter GPUs</div></div>
+      <div class="pipe-step"><div class="pipe-num cuda-num">✓</div><div class="pipe-body">Mature toolchain — nvcc, nsight, nvidia-smi</div></div>
+      <div class="pipe-step"><div class="pipe-num cuda-num">✓</div><div class="pipe-body">Most research papers target CUDA first</div></div>
+    </div>
+    <div class="card metal-card">
+      <div class="card-bar metal-bar"></div>
+      <div class="card-label">Apple Metal Path (M3)</div>
+      <div class="badges"><span class="badge-metal">Metal 3</span><span class="badge-metal">MPS</span><span class="badge-metal">MPSGraph</span></div>
+      <p>The M3 GPU has 40 cores and shares memory with the CPU — no PCIe bottleneck. The Metal path uses Metal Performance Shaders (MPS) for PyTorch ops and custom Metal compute kernels for rasterization.</p>
+      <div class="pipe-step"><div class="pipe-num metal-num">✓</div><div class="pipe-body">M1/M2/M3 — unified memory, zero copy</div></div>
+      <div class="pipe-step"><div class="pipe-num metal-num">✓</div><div class="pipe-body">PyTorch MPS backend (torch.device("mps"))</div></div>
+      <div class="pipe-step"><div class="pipe-num metal-num">~</div><div class="pipe-body">Community ports maturing — gsplat is best option</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 1 — DATA STRUCTURES
+═══════════════════════════════════════════ -->
+<div class="section" id="data">
+  <div class="eyebrow">Section 02</div>
+  <h2>Core Data Structures</h2>
+  <p>Everything lives in <strong>Structure of Arrays (SoA)</strong> format — not Array of Structures. This is critical for GPU memory coalescing. Each property of all 3M Gaussians is stored in its own contiguous tensor.</p>
+
+  <div class="card both-card">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">GaussianModel — The Scene Representation (Python / PyTorch)</div>
+<div class="code-header py">Python · gaussian_model.py</div>
+<div class="code-block"><span class="kw">import</span> <span class="var">torch</span>
+<span class="kw">import</span> <span class="var">torch.nn</span> <span class="kw">as</span> <span class="var">nn</span>
+
+<span class="kw">class</span> <span class="typ">GaussianModel</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="var">self</span>, <span class="var">sh_degree</span>: <span class="typ">int</span> <span class="op">=</span> <span class="num">3</span>):
+        <span class="cmt"># ── Core parameters (59 floats per Gaussian) ──────────────────</span>
+        <span class="var">self</span>._xyz        <span class="op">=</span> <span class="typ">None</span>   <span class="cmt"># [N, 3]  — position μ</span>
+        <span class="var">self</span>._scaling    <span class="op">=</span> <span class="typ">None</span>   <span class="cmt"># [N, 3]  — log scale (exp to get sx,sy,sz)</span>
+        <span class="var">self</span>._rotation   <span class="op">=</span> <span class="typ">None</span>   <span class="cmt"># [N, 4]  — quaternion (w,x,y,z)</span>
+        <span class="var">self</span>._opacity    <span class="op">=</span> <span class="typ">None</span>   <span class="cmt"># [N, 1]  — logit opacity (sigmoid to get α)</span>
+        <span class="var">self</span>._features_dc  <span class="op">=</span> <span class="typ">None</span> <span class="cmt"># [N, 1, 3]  — DC SH color (degree 0)</span>
+        <span class="var">self</span>._features_rest<span class="op">=</span> <span class="typ">None</span> <span class="cmt"># [N, 15, 3] — higher-degree SH (degrees 1–3)</span>
+
+        <span class="cmt"># ── Optimizer state ───────────────────────────────────────────</span>
+        <span class="var">self</span>.optimizer     <span class="op">=</span> <span class="typ">None</span>
+        <span class="var">self</span>.max_sh_degree  <span class="op">=</span> <span class="var">sh_degree</span>
+        <span class="var">self</span>.active_sh_degree <span class="op">=</span> <span class="num">0</span>  <span class="cmt"># ramp up during training</span>
+
+    <span class="kw">def</span> <span class="fn">create_from_pcd</span>(<span class="var">self</span>, <span class="var">pcd_points</span>: <span class="var">torch</span>.<span class="typ">Tensor</span>, <span class="var">device</span>: <span class="typ">str</span>):
+        <span class="cmt"># Detect device — works for both CUDA and Metal MPS</span>
+        <span class="var">dev</span> <span class="op">=</span> <span class="fn">torch.device</span>(<span class="var">device</span>)  <span class="cmt"># "cuda:0" or "mps"</span>
+        <span class="var">N</span>   <span class="op">=</span> <span class="var">pcd_points</span>.<span class="fn">shape</span>[<span class="num">0</span>]
+
+        <span class="var">self</span>._xyz <span class="op">=</span> <span class="var">nn</span>.<span class="typ">Parameter</span>(<span class="var">pcd_points</span>.<span class="fn">to</span>(<span class="var">dev</span>).<span class="fn">requires_grad_</span>(<span class="kw">True</span>))
+
+        <span class="cmt"># Initialise scales from nearest-neighbour distances</span>
+        <span class="var">dists</span> <span class="op">=</span> <span class="fn">compute_nn_distances</span>(<span class="var">pcd_points</span>)
+        <span class="var">scales</span> <span class="op">=</span> <span class="var">torch</span>.<span class="fn">log</span>(<span class="var">dists</span>.<span class="fn">unsqueeze</span>(<span class="num">-1</span>).<span class="fn">repeat</span>(<span class="num">1</span>,<span class="num">3</span>))
+        <span class="var">self</span>._scaling <span class="op">=</span> <span class="var">nn</span>.<span class="typ">Parameter</span>(<span class="var">scales</span>.<span class="fn">to</span>(<span class="var">dev</span>))
+
+        <span class="cmt"># Identity rotation (w=1, x=y=z=0)</span>
+        <span class="var">rots</span> <span class="op">=</span> <span class="var">torch</span>.<span class="fn">zeros</span>(<span class="var">N</span>, <span class="num">4</span>, <span class="var">device</span><span class="op">=</span><span class="var">dev</span>)
+        <span class="var">rots</span>[:, <span class="num">0</span>] <span class="op">=</span> <span class="num">1.0</span>
+        <span class="var">self</span>._rotation <span class="op">=</span> <span class="var">nn</span>.<span class="typ">Parameter</span>(<span class="var">rots</span>)
+
+        <span class="cmt"># Logit(0.1) ≈ -2.2 — start near-transparent</span>
+        <span class="var">self</span>._opacity <span class="op">=</span> <span class="var">nn</span>.<span class="typ">Parameter</span>(
+            <span class="var">torch</span>.<span class="fn">full</span>((<span class="var">N</span>, <span class="num">1</span>), <span class="num">-2.2</span>, <span class="var">device</span><span class="op">=</span><span class="var">dev</span>))
+
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">get_xyz</span>(<span class="var">self</span>)     <span class="op">-></span> <span class="var">torch</span>.<span class="typ">Tensor</span>: <span class="kw">return</span> <span class="var">self</span>._xyz
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">get_scaling</span>(<span class="var">self</span>) <span class="op">-></span> <span class="var">torch</span>.<span class="typ">Tensor</span>: <span class="kw">return</span> <span class="var">torch</span>.<span class="fn">exp</span>(<span class="var">self</span>._scaling)
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">get_rotation</span>(<span class="var">self</span>)<span class="op">-></span> <span class="var">torch</span>.<span class="typ">Tensor</span>:
+        <span class="kw">return</span> <span class="var">torch</span>.<span class="fn">nn.functional.normalize</span>(<span class="var">self</span>._rotation, <span class="var">dim</span><span class="op">=</span><span class="num">-1</span>)
+    <span class="kw">@property</span>
+    <span class="kw">def</span> <span class="fn">get_opacity</span>(<span class="var">self</span>) <span class="op">-></span> <span class="var">torch</span>.<span class="typ">Tensor</span>: <span class="kw">return</span> <span class="var">torch</span>.<span class="fn">sigmoid</span>(<span class="var">self</span>._opacity)</div>
+  </div>
+
+  <div class="card both-card" style="margin-top:1rem;">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">Why SoA beats AoS on GPU</div>
+    <canvas id="cSoA" width="1000" height="160" style="width:100%;max-width:1000px;"></canvas>
+    <p class="caption">SoA (Structure of Arrays) lets GPU warps load the same field from consecutive memory addresses — maximising memory bandwidth utilisation</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 2 — CUDA KERNEL
+═══════════════════════════════════════════ -->
+<div class="section" id="cuda-kernel">
+  <div class="eyebrow">Section 03</div>
+  <h2>CUDA Rasterizer Kernels</h2>
+  <p>The rasterizer is two CUDA kernels: <strong>preprocess</strong> (project + sort) and <strong>render</strong> (alpha composite). The backward pass has matching kernels that compute gradients w.r.t. all Gaussian parameters.</p>
+
+  <div class="card cuda-card">
+    <div class="card-bar cuda-bar"></div>
+    <div class="card-label">Kernel 1 of 2 — Preprocess: Project 3D Gaussians to 2D</div>
+<div class="code-header cuda">CUDA C++ · preprocess.cu</div>
+<div class="code-block"><span class="cmt">// Each CUDA thread handles ONE Gaussian</span>
+<span class="cmt">// gridDim × blockDim must cover all N Gaussians</span>
+<span class="mac">__global__</span> <span class="kw">void</span> <span class="fn">preprocessCUDA</span>(
+    <span class="typ">int</span>    <span class="var">P</span>,                      <span class="cmt">// number of Gaussians</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">positions</span>,      <span class="cmt">// [P,3] world-space centres</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">scales</span>,         <span class="cmt">// [P,3] scale sx,sy,sz</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">rotations</span>,      <span class="cmt">// [P,4] quaternion w,x,y,z</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">opacities</span>,      <span class="cmt">// [P,1] pre-sigmoid opacity</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">shs</span>,             <span class="cmt">// [P,48] spherical harmonic coeffs</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">view_matrix</span>,     <span class="cmt">// [4,4] world-to-camera</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span> <span class="var">proj_matrix</span>,     <span class="cmt">// [4,4] camera-to-clip</span>
+    <span class="cmt">// outputs</span>
+    <span class="typ">float2</span><span class="op">*</span>  <span class="var">xy_screen</span>,          <span class="cmt">// [P,2] 2D screen position</span>
+    <span class="typ">float4</span><span class="op">*</span>  <span class="var">cov2D</span>,              <span class="cmt">// [P,3] upper-tri of 2D cov (a,b,c)</span>
+    <span class="typ">float</span><span class="op">*</span>   <span class="var">depths</span>,             <span class="cmt">// [P]   depth for sorting</span>
+    <span class="typ">uint32_t</span><span class="op">*</span><span class="var">tiles_touched</span>,       <span class="cmt">// [P]   how many 16×16 tiles overlap</span>
+    <span class="typ">float3</span><span class="op">*</span>  <span class="var">rgb</span>                  <span class="cmt">// [P,3] SH-evaluated colour</span>
+) {
+    <span class="typ">int</span> <span class="var">idx</span> <span class="op">=</span> <span class="var">blockIdx</span>.<span class="var">x</span> <span class="op">*</span> <span class="var">blockDim</span>.<span class="var">x</span> <span class="op">+</span> <span class="var">threadIdx</span>.<span class="var">x</span>;
+    <span class="kw">if</span> (<span class="var">idx</span> <span class="op">>=</span> <span class="var">P</span>) <span class="kw">return</span>;  <span class="cmt">// guard — last block may be partial</span>
+
+    <span class="cmt">// 1. Load this Gaussian's position and transform to camera space</span>
+    <span class="typ">float3</span> <span class="var">p</span> <span class="op">=</span> {<span class="var">positions</span>[<span class="var">idx</span><span class="op">*</span><span class="num">3</span>], <span class="var">positions</span>[<span class="var">idx</span><span class="op">*</span><span class="num">3</span><span class="op">+</span><span class="num">1</span>], <span class="var">positions</span>[<span class="var">idx</span><span class="op">*</span><span class="num">3</span><span class="op">+</span><span class="num">2</span>]};
+    <span class="typ">float4</span> <span class="var">p_cam</span> <span class="op">=</span> <span class="fn">transformPoint4x4</span>(<span class="var">p</span>, <span class="var">view_matrix</span>);
+    <span class="var">depths</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="var">p_cam</span>.<span class="var">z</span>;  <span class="cmt">// store depth for radix sort</span>
+
+    <span class="cmt">// 2. Build 3D covariance Σ = R·S·Sᵀ·Rᵀ</span>
+    <span class="typ">float3</span> <span class="var">s</span>  <span class="op">=</span> {<span class="var">scales</span>[<span class="var">idx</span><span class="op">*</span><span class="num">3</span>], <span class="var">scales</span>[<span class="var">idx</span><span class="op">*</span><span class="num">3</span><span class="op">+</span><span class="num">1</span>], <span class="var">scales</span>[<span class="var">idx</span><span class="op">*</span><span class="num">3</span><span class="op">+</span><span class="num">2</span>]};
+    <span class="typ">float4</span> <span class="var">q</span>  <span class="op">=</span> {<span class="var">rotations</span>[<span class="var">idx</span><span class="op">*</span><span class="num">4</span>], <span class="var">rotations</span>[<span class="var">idx</span><span class="op">*</span><span class="num">4</span><span class="op">+</span><span class="num">1</span>],
+                  <span class="var">rotations</span>[<span class="var">idx</span><span class="op">*</span><span class="num">4</span><span class="op">+</span><span class="num">2</span>], <span class="var">rotations</span>[<span class="var">idx</span><span class="op">*</span><span class="num">4</span><span class="op">+</span><span class="num">3</span>]};
+    <span class="typ">float3x3</span> <span class="var">Sigma3D</span> <span class="op">=</span> <span class="fn">computeCov3D</span>(<span class="var">s</span>, <span class="var">q</span>);  <span class="cmt">// builds R·S·Sᵀ·Rᵀ</span>
+
+    <span class="cmt">// 3. Project: Σ' = J·W·Σ·Wᵀ·Jᵀ  (EWA approximation)</span>
+    <span class="typ">float3</span> <span class="var">cov</span> <span class="op">=</span> <span class="fn">computeCov2D</span>(<span class="var">p</span>, <span class="var">Sigma3D</span>, <span class="var">view_matrix</span>, <span class="var">proj_matrix</span>);
+    <span class="cmt">// cov = (a, b, c) upper triangle of 2×2 cov matrix</span>
+    <span class="cmt">// [a b]   a = cov.x, b = cov.y, c = cov.z</span>
+    <span class="cmt">// [b c]</span>
+
+    <span class="cmt">// 4. Add low-pass filter (prevents aliasing at training res)</span>
+    <span class="var">cov</span>.<span class="var">x</span> <span class="op">+=</span> <span class="num">0.3f</span>;  <span class="var">cov</span>.<span class="var">z</span> <span class="op">+=</span> <span class="num">0.3f</span>;
+
+    <span class="cmt">// 5. Project to screen space</span>
+    <span class="typ">float2</span> <span class="var">screen_pos</span> <span class="op">=</span> <span class="fn">ndc2Pix</span>(<span class="var">p_cam</span>, <span class="cmt">/*width, height*/</span>);
+    <span class="var">xy_screen</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="var">screen_pos</span>;
+    <span class="var">cov2D</span>[<span class="var">idx</span>]     <span class="op">=</span> {<span class="var">cov</span>.<span class="var">x</span>, <span class="var">cov</span>.<span class="var">y</span>, <span class="var">cov</span>.<span class="var">z</span>, <span class="num">0.0f</span>};
+
+    <span class="cmt">// 6. Count which 16×16 screen tiles this Gaussian overlaps</span>
+    <span class="cmt">// (used to distribute work in the render kernel)</span>
+    <span class="typ">float</span> <span class="var">radius</span> <span class="op">=</span> <span class="fn">computeRadius</span>(<span class="var">cov</span>);  <span class="cmt">// 3σ in pixels</span>
+    <span class="var">tiles_touched</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="fn">countTiles</span>(<span class="var">screen_pos</span>, <span class="var">radius</span>);
+
+    <span class="cmt">// 7. Evaluate spherical harmonics for view-dependent colour</span>
+    <span class="typ">float3</span> <span class="var">dir</span>    <span class="op">=</span> <span class="fn">normalize</span>(<span class="var">p</span> <span class="op">-</span> <span class="fn">getCameraPos</span>(<span class="var">view_matrix</span>));
+    <span class="var">rgb</span>[<span class="var">idx</span>]      <span class="op">=</span> <span class="fn">evalSH</span>(<span class="var">shs</span> <span class="op">+</span> <span class="var">idx</span><span class="op">*</span><span class="num">48</span>, <span class="var">dir</span>, <span class="cmt">/*degree=*/</span><span class="num">3</span>);
+}</div>
+  </div>
+
+  <div class="card cuda-card" style="margin-top:1rem;">
+    <div class="card-bar cuda-bar"></div>
+    <div class="card-label">Kernel 2 of 2 — Render: Tile-Based Alpha Compositing</div>
+<div class="code-header cuda">CUDA C++ · forward.cu — the critical inner loop</div>
+<div class="code-block"><span class="cmt">// One CUDA block = one 16×16 tile of pixels</span>
+<span class="cmt">// Threads within a block cooperate via shared memory</span>
+<span class="mac">__global__</span> <span class="kw">void</span> <span class="fn">renderCUDA</span>(
+    <span class="kw">const</span> <span class="typ">uint2</span><span class="op">*</span>  <span class="var">ranges</span>,     <span class="cmt">// [tiles] range of sorted Gaussian indices for this tile</span>
+    <span class="kw">const</span> <span class="typ">uint32_t</span><span class="op">*</span><span class="var">point_list</span>, <span class="cmt">// sorted Gaussian indices (back-to-front within tile)</span>
+    <span class="kw">const</span> <span class="typ">float2</span><span class="op">*</span> <span class="var">points_xy</span>,  <span class="cmt">// [P,2] screen positions</span>
+    <span class="kw">const</span> <span class="typ">float4</span><span class="op">*</span> <span class="var">cov2D</span>,      <span class="cmt">// [P,3] 2D covariance (a,b,c)</span>
+    <span class="kw">const</span> <span class="typ">float</span><span class="op">*</span>  <span class="var">opacities</span>,  <span class="cmt">// [P]   per-gaussian opacity</span>
+    <span class="kw">const</span> <span class="typ">float3</span><span class="op">*</span> <span class="var">colours</span>,    <span class="cmt">// [P,3] SH-evaluated RGB</span>
+    <span class="typ">float</span><span class="op">*</span>        <span class="var">out_colour</span>  <span class="cmt">// [H,W,3] output image</span>
+) {
+    <span class="cmt">// Identify which tile + which pixel within the tile</span>
+    <span class="typ">uint2</span> <span class="var">tile</span>  <span class="op">=</span> {<span class="var">blockIdx</span>.<span class="var">x</span>, <span class="var">blockIdx</span>.<span class="var">y</span>};
+    <span class="typ">uint2</span> <span class="var">pixel</span> <span class="op">=</span> {<span class="var">tile</span>.<span class="var">x</span><span class="op">*</span><span class="num">16</span> <span class="op">+</span> <span class="var">threadIdx</span>.<span class="var">x</span>, <span class="var">tile</span>.<span class="var">y</span><span class="op">*</span><span class="num">16</span> <span class="op">+</span> <span class="var">threadIdx</span>.<span class="var">y</span>};
+
+    <span class="cmt">// Shared memory — all 256 threads cooperate to load Gaussian data</span>
+    <span class="mac">__shared__</span> <span class="typ">float2</span>  <span class="var">collected_xy</span>[<span class="num">256</span>];
+    <span class="mac">__shared__</span> <span class="typ">float4</span>  <span class="var">collected_cov</span>[<span class="num">256</span>];
+    <span class="mac">__shared__</span> <span class="typ">float</span>   <span class="var">collected_alpha</span>[<span class="num">256</span>];
+    <span class="mac">__shared__</span> <span class="typ">float3</span>  <span class="var">collected_colour</span>[<span class="num">256</span>];
+
+    <span class="cmt">// Accumulation state per pixel</span>
+    <span class="typ">float3</span> <span class="var">C</span>           <span class="op">=</span> {<span class="num">0</span>, <span class="num">0</span>, <span class="num">0</span>};  <span class="cmt">// accumulated colour</span>
+    <span class="typ">float</span>  <span class="var">T</span>           <span class="op">=</span> <span class="num">1.0f</span>;        <span class="cmt">// transmittance (starts full)</span>
+    <span class="kw">const</span> <span class="typ">float</span> <span class="var">T_THRESH</span> <span class="op">=</span> <span class="num">0.0001f</span>;   <span class="cmt">// early-exit when nearly opaque</span>
+
+    <span class="cmt">// Get range of Gaussians for this tile (already depth-sorted)</span>
+    <span class="typ">uint2</span> <span class="var">range</span>  <span class="op">=</span> <span class="var">ranges</span>[<span class="var">tile</span>.<span class="var">y</span> <span class="op">*</span> <span class="var">grid_w</span> <span class="op">+</span> <span class="var">tile</span>.<span class="var">x</span>];
+    <span class="typ">int</span>   <span class="var">rounds</span> <span class="op">=</span> (<span class="var">range</span>.<span class="var">y</span> <span class="op">-</span> <span class="var">range</span>.<span class="var">x</span> <span class="op">+</span> <span class="num">255</span>) <span class="op">/</span> <span class="num">256</span>;  <span class="cmt">// batches of 256</span>
+
+    <span class="kw">for</span> (<span class="typ">int</span> <span class="var">r</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">r</span> <span class="op"><</span> <span class="var">rounds</span>; <span class="op">++</span><span class="var">r</span>) {
+        <span class="cmt">// ── Cooperative load: each thread loads one Gaussian ────────</span>
+        <span class="typ">int</span> <span class="var">g_idx</span> <span class="op">=</span> <span class="var">range</span>.<span class="var">x</span> <span class="op">+</span> <span class="var">r</span><span class="op">*</span><span class="num">256</span> <span class="op">+</span> <span class="var">threadIdx</span>.<span class="var">x</span> <span class="op">*</span> <span class="num">16</span> <span class="op">+</span> <span class="var">threadIdx</span>.<span class="var">y</span>;
+        <span class="kw">if</span> (<span class="var">g_idx</span> <span class="op"><</span> <span class="var">range</span>.<span class="var">y</span>) {
+            <span class="typ">int</span> <span class="var">g</span> <span class="op">=</span> <span class="var">point_list</span>[<span class="var">g_idx</span>];
+            <span class="var">collected_xy</span>    [<span class="var">threadIdx</span>.<span class="var">x</span><span class="op">*</span><span class="num">16</span><span class="op">+</span><span class="var">threadIdx</span>.<span class="var">y</span>] <span class="op">=</span> <span class="var">points_xy</span>[<span class="var">g</span>];
+            <span class="var">collected_cov</span>   [<span class="var">threadIdx</span>.<span class="var">x</span><span class="op">*</span><span class="num">16</span><span class="op">+</span><span class="var">threadIdx</span>.<span class="var">y</span>] <span class="op">=</span> <span class="var">cov2D</span>[<span class="var">g</span>];
+            <span class="var">collected_alpha</span> [<span class="var">threadIdx</span>.<span class="var">x</span><span class="op">*</span><span class="num">16</span><span class="op">+</span><span class="var">threadIdx</span>.<span class="var">y</span>] <span class="op">=</span> <span class="var">opacities</span>[<span class="var">g</span>];
+            <span class="var">collected_colour</span>[<span class="var">threadIdx</span>.<span class="var">x</span><span class="op">*</span><span class="num">16</span><span class="op">+</span><span class="var">threadIdx</span>.<span class="var">y</span>] <span class="op">=</span> <span class="var">colours</span>[<span class="var">g</span>];
+        }
+        <span class="mac">__syncthreads</span>();  <span class="cmt">// wait — all 256 threads must finish loading</span>
+
+        <span class="cmt">// ── Each thread processes all 256 loaded Gaussians ───────────</span>
+        <span class="kw">for</span> (<span class="typ">int</span> <span class="var">j</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">j</span> <span class="op"><</span> <span class="fn">min</span>(<span class="num">256</span>, <span class="var">range</span>.<span class="var">y</span><span class="op">-</span><span class="var">range</span>.<span class="var">x</span><span class="op">-</span><span class="var">r</span><span class="op">*</span><span class="num">256</span>); <span class="op">++</span><span class="var">j</span>) {
+            <span class="kw">if</span> (<span class="var">T</span> <span class="op"><</span> <span class="var">T_THRESH</span>) <span class="kw">break</span>;  <span class="cmt">// early exit — pixel fully opaque</span>
+
+            <span class="cmt">// Evaluate 2D Gaussian at this pixel position</span>
+            <span class="typ">float2</span> <span class="var">d</span>    <span class="op">=</span> {<span class="var">pixel</span>.<span class="var">x</span> <span class="op">-</span> <span class="var">collected_xy</span>[<span class="var">j</span>].<span class="var">x</span>,
+                           <span class="var">pixel</span>.<span class="var">y</span> <span class="op">-</span> <span class="var">collected_xy</span>[<span class="var">j</span>].<span class="var">y</span>};
+            <span class="typ">float4</span> <span class="var">cov</span>  <span class="op">=</span> <span class="var">collected_cov</span>[<span class="var">j</span>];
+            <span class="cmt">// Mahalanobis distance: dᵀ Σ⁻¹ d</span>
+            <span class="typ">float</span> <span class="var">det</span>   <span class="op">=</span> <span class="var">cov</span>.<span class="var">x</span><span class="op">*</span><span class="var">cov</span>.<span class="var">z</span> <span class="op">-</span> <span class="var">cov</span>.<span class="var">y</span><span class="op">*</span><span class="var">cov</span>.<span class="var">y</span>;
+            <span class="typ">float</span> <span class="var">power</span> <span class="op">=</span> <span class="op">-</span><span class="num">0.5f</span> <span class="op">*</span> (<span class="var">cov</span>.<span class="var">z</span><span class="op">*</span><span class="var">d</span>.<span class="var">x</span><span class="op">*</span><span class="var">d</span>.<span class="var">x</span>
+                                    <span class="op">-</span> <span class="num">2</span><span class="op">*</span><span class="var">cov</span>.<span class="var">y</span><span class="op">*</span><span class="var">d</span>.<span class="var">x</span><span class="op">*</span><span class="var">d</span>.<span class="var">y</span>
+                                    <span class="op">+</span> <span class="var">cov</span>.<span class="var">x</span><span class="op">*</span><span class="var">d</span>.<span class="var">y</span><span class="op">*</span><span class="var">d</span>.<span class="var">y</span>) <span class="op">/</span> <span class="var">det</span>;
+            <span class="kw">if</span> (<span class="var">power</span> <span class="op">></span> <span class="num">0.0f</span>) <span class="kw">continue</span>;  <span class="cmt">// outside Gaussian</span>
+
+            <span class="cmt">// α = opacity × G(pixel)  where G is the 2D Gaussian value</span>
+            <span class="typ">float</span> <span class="var">alpha</span>  <span class="op">=</span> <span class="fn">min</span>(<span class="num">0.99f</span>, <span class="var">collected_alpha</span>[<span class="var">j</span>] <span class="op">*</span> <span class="fn">expf</span>(<span class="var">power</span>));
+            <span class="kw">if</span> (<span class="var">alpha</span> <span class="op"><</span> <span class="num">1.0f</span><span class="op">/</span><span class="num">255.0f</span>) <span class="kw">continue</span>;  <span class="cmt">// negligible contribution</span>
+
+            <span class="cmt">// Accumulate: C += c_i * α_i * T_i</span>
+            <span class="var">C</span>.<span class="var">x</span> <span class="op">+=</span> <span class="var">collected_colour</span>[<span class="var">j</span>].<span class="var">x</span> <span class="op">*</span> <span class="var">alpha</span> <span class="op">*</span> <span class="var">T</span>;
+            <span class="var">C</span>.<span class="var">y</span> <span class="op">+=</span> <span class="var">collected_colour</span>[<span class="var">j</span>].<span class="var">y</span> <span class="op">*</span> <span class="var">alpha</span> <span class="op">*</span> <span class="var">T</span>;
+            <span class="var">C</span>.<span class="var">z</span> <span class="op">+=</span> <span class="var">collected_colour</span>[<span class="var">j</span>].<span class="var">z</span> <span class="op">*</span> <span class="var">alpha</span> <span class="op">*</span> <span class="var">T</span>;
+            <span class="var">T</span>   <span class="op">*=</span> (<span class="num">1.0f</span> <span class="op">-</span> <span class="var">alpha</span>);  <span class="cmt">// reduce remaining transmittance</span>
+        }
+        <span class="mac">__syncthreads</span>();  <span class="cmt">// sync before next batch</span>
+    }
+
+    <span class="cmt">// Write final pixel colour</span>
+    <span class="kw">if</span> (<span class="var">pixel</span>.<span class="var">x</span> <span class="op"><</span> <span class="var">width</span> <span class="op">&&</span> <span class="var">pixel</span>.<span class="var">y</span> <span class="op"><</span> <span class="var">height</span>) {
+        <span class="typ">int</span> <span class="var">pix_id</span> <span class="op">=</span> <span class="var">pixel</span>.<span class="var">y</span> <span class="op">*</span> <span class="var">width</span> <span class="op">+</span> <span class="var">pixel</span>.<span class="var">x</span>;
+        <span class="var">out_colour</span>[<span class="var">pix_id</span><span class="op">*</span><span class="num">3</span>   ] <span class="op">=</span> <span class="var">C</span>.<span class="var">x</span> <span class="op">+</span> <span class="var">T</span> <span class="op">*</span> <span class="var">bg_r</span>;  <span class="cmt">// background fill</span>
+        <span class="var">out_colour</span>[<span class="var">pix_id</span><span class="op">*</span><span class="num">3</span><span class="op">+</span><span class="num">1</span>] <span class="op">=</span> <span class="var">C</span>.<span class="var">y</span> <span class="op">+</span> <span class="var">T</span> <span class="op">*</span> <span class="var">bg_g</span>;
+        <span class="var">out_colour</span>[<span class="var">pix_id</span><span class="op">*</span><span class="num">3</span><span class="op">+</span><span class="num">2</span>] <span class="op">=</span> <span class="var">C</span>.<span class="var">z</span> <span class="op">+</span> <span class="var">T</span> <span class="op">*</span> <span class="var">bg_b</span>;
+    }
+}</div>
+  </div>
+
+  <div class="card cuda-card" style="margin-top:1rem;">
+    <div class="card-bar cuda-bar"></div>
+    <div class="card-label">Why Tile-Based? — Shared Memory Diagram</div>
+    <canvas id="cTile" width="1000" height="200" style="width:100%;max-width:1000px;"></canvas>
+    <p class="caption">Screen divided into 16×16 tiles · Each CUDA block handles one tile · 256 threads cooperate through shared memory to load Gaussians in batches — avoids redundant global memory reads</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 3 — METAL KERNEL
+═══════════════════════════════════════════ -->
+<div class="section" id="metal-kernel">
+  <div class="eyebrow">Section 04</div>
+  <h2>Metal Compute Kernels (M3 Apple Silicon)</h2>
+  <p>The Metal path mirrors the CUDA architecture but uses Metal Shading Language (MSL). The M3's unified memory architecture eliminates CPU↔GPU copies — tensors live in a single address space accessible by both.</p>
+
+  <div class="tip">On M3, <strong>torch.device("mps")</strong> is the entry point. For the rasterizer itself, the best production-ready option is <strong>gsplat</strong> which has a Metal-compatible backend via MPS. The kernels below show the manual Metal path for learning/custom implementations.</div>
+
+  <div class="card metal-card">
+    <div class="card-bar metal-bar"></div>
+    <div class="card-label">Metal Preprocess Kernel — Gaussian Projection (MSL)</div>
+<div class="code-header metal">Metal Shading Language · preprocess.metal</div>
+<div class="code-block"><span class="kw">#include</span> <span class="str"><metal_stdlib></span>
+<span class="kw">using namespace</span> <span class="var">metal</span>;
+
+<span class="cmt">// Matches CUDA __device__ — runs on each GPU thread</span>
+<span class="cmt">// thread_position_in_grid = threadIdx in CUDA terms</span>
+
+<span class="kw">kernel void</span> <span class="fn">preprocessGaussians</span>(
+    <span class="cmt">// Buffers — Metal's equivalent of CUDA device pointers</span>
+    <span class="kw">const device</span> <span class="typ">float3</span><span class="op">*</span> <span class="var">positions</span>   [[ <span class="var">buffer</span>(<span class="num">0</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float3</span><span class="op">*</span> <span class="var">scales</span>      [[ <span class="var">buffer</span>(<span class="num">1</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float4</span><span class="op">*</span> <span class="var">rotations</span>   [[ <span class="var">buffer</span>(<span class="num">2</span>) ]],  <span class="cmt">// quaternion</span>
+    <span class="kw">const device</span> <span class="typ">float</span><span class="op">*</span>  <span class="var">opacities</span>   [[ <span class="var">buffer</span>(<span class="num">3</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float4x4</span><span class="op">*</span><span class="var">view_matrix</span>[[ <span class="var">buffer</span>(<span class="num">4</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float4x4</span><span class="op">*</span><span class="var">proj_matrix</span>[[ <span class="var">buffer</span>(<span class="num">5</span>) ]],
+    <span class="kw">device</span> <span class="typ">float2</span><span class="op">*</span>       <span class="var">xy_screen</span>   [[ <span class="var">buffer</span>(<span class="num">6</span>) ]],
+    <span class="kw">device</span> <span class="typ">float3</span><span class="op">*</span>       <span class="var">cov2D</span>       [[ <span class="var">buffer</span>(<span class="num">7</span>) ]],  <span class="cmt">// a,b,c</span>
+    <span class="kw">device</span> <span class="typ">float</span><span class="op">*</span>        <span class="var">depths</span>      [[ <span class="var">buffer</span>(<span class="num">8</span>) ]],
+    <span class="cmt">// Grid dispatch</span>
+    <span class="typ">uint</span> <span class="var">idx</span> [[ <span class="var">thread_position_in_grid</span> ]]  <span class="cmt">// = blockIdx*blockDim+threadIdx</span>
+) {
+    <span class="cmt">// 1. Transform position to camera space</span>
+    <span class="typ">float4</span> <span class="var">pos_h</span>  <span class="op">=</span> <span class="typ">float4</span>(<span class="var">positions</span>[<span class="var">idx</span>], <span class="num">1.0f</span>);
+    <span class="typ">float4</span> <span class="var">p_cam</span>  <span class="op">=</span> <span class="var">view_matrix</span>[<span class="num">0</span>] <span class="op">*</span> <span class="var">pos_h</span>;  <span class="cmt">// metal: col-major mul</span>
+    <span class="var">depths</span>[<span class="var">idx</span>]  <span class="op">=</span> <span class="var">p_cam</span>.<span class="var">z</span>;
+
+    <span class="cmt">// 2. Build 3D covariance Σ = R·S·Sᵀ·Rᵀ from quaternion + scale</span>
+    <span class="typ">float4</span> <span class="var">q</span>  <span class="op">=</span> <span class="var">rotations</span>[<span class="var">idx</span>];
+    <span class="typ">float3</span> <span class="var">s</span>  <span class="op">=</span> <span class="var">scales</span>[<span class="var">idx</span>];
+    <span class="cmt">// Quaternion → rotation matrix</span>
+    <span class="typ">float3x3</span> <span class="var">R</span> <span class="op">=</span> <span class="typ">float3x3</span>(
+        <span class="num">1</span><span class="op">-</span><span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">z</span><span class="op">*</span><span class="var">q</span>.<span class="var">z</span><span class="op">+</span><span class="var">q</span>.<span class="var">w</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span>), <span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">y</span><span class="op">*</span><span class="var">q</span>.<span class="var">z</span><span class="op">-</span><span class="var">q</span>.<span class="var">x</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span>), <span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">y</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span><span class="op">+</span><span class="var">q</span>.<span class="var">x</span><span class="op">*</span><span class="var">q</span>.<span class="var">z</span>),
+        <span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">y</span><span class="op">*</span><span class="var">q</span>.<span class="var">z</span><span class="op">+</span><span class="var">q</span>.<span class="var">x</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span>), <span class="num">1</span><span class="op">-</span><span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">y</span><span class="op">*</span><span class="var">q</span>.<span class="var">y</span><span class="op">+</span><span class="var">q</span>.<span class="var">w</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span>), <span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">z</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span><span class="op">-</span><span class="var">q</span>.<span class="var">x</span><span class="op">*</span><span class="var">q</span>.<span class="var">y</span>),
+        <span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">y</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span><span class="op">-</span><span class="var">q</span>.<span class="var">x</span><span class="op">*</span><span class="var">q</span>.<span class="var">z</span>), <span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">z</span><span class="op">*</span><span class="var">q</span>.<span class="var">w</span><span class="op">+</span><span class="var">q</span>.<span class="var">x</span><span class="op">*</span><span class="var">q</span>.<span class="var">y</span>), <span class="num">1</span><span class="op">-</span><span class="num">2</span><span class="op">*</span>(<span class="var">q</span>.<span class="var">y</span><span class="op">*</span><span class="var">q</span>.<span class="var">y</span><span class="op">+</span><span class="var">q</span>.<span class="var">z</span><span class="op">*</span><span class="var">q</span>.<span class="var">z</span>)
+    );
+    <span class="cmt">// S = diag(sx², sy², sz²)  →  Σ = R · S · Rᵀ</span>
+    <span class="typ">float3x3</span> <span class="var">Sigma</span> <span class="op">=</span> <span class="var">R</span> <span class="op">*</span> <span class="typ">float3x3</span>(<span class="var">s</span>.<span class="var">x</span><span class="op">*</span><span class="var">s</span>.<span class="var">x</span>,<span class="num">0</span>,<span class="num">0</span>, <span class="num">0</span>,<span class="var">s</span>.<span class="var">y</span><span class="op">*</span><span class="var">s</span>.<span class="var">y</span>,<span class="num">0</span>, <span class="num">0</span>,<span class="num">0</span>,<span class="var">s</span>.<span class="var">z</span><span class="op">*</span><span class="var">s</span>.<span class="var">z</span>) <span class="op">*</span> <span class="fn">transpose</span>(<span class="var">R</span>);
+
+    <span class="cmt">// 3. EWA projection: Σ' = J·W·Σ·Wᵀ·Jᵀ</span>
+    <span class="typ">float3x3</span> <span class="var">W</span>  <span class="op">=</span> <span class="typ">float3x3</span>(<span class="var">view_matrix</span>[<span class="num">0</span>]);  <span class="cmt">// upper-left 3×3 of view</span>
+    <span class="typ">float3</span>   <span class="var">t</span>  <span class="op">=</span> <span class="var">p_cam</span>.<span class="var">xyz</span>;
+    <span class="cmt">// Jacobian of perspective divide</span>
+    <span class="typ">float3x3</span> <span class="var">J</span>  <span class="op">=</span> <span class="typ">float3x3</span>(
+        <span class="num">1</span><span class="op">/</span><span class="var">t</span>.<span class="var">z</span>, <span class="num">0</span>,   <span class="op">-</span><span class="var">t</span>.<span class="var">x</span><span class="op">/</span>(<span class="var">t</span>.<span class="var">z</span><span class="op">*</span><span class="var">t</span>.<span class="var">z</span>),
+        <span class="num">0</span>,    <span class="num">1</span><span class="op">/</span><span class="var">t</span>.<span class="var">z</span>, <span class="op">-</span><span class="var">t</span>.<span class="var">y</span><span class="op">/</span>(<span class="var">t</span>.<span class="var">z</span><span class="op">*</span><span class="var">t</span>.<span class="var">z</span>),
+        <span class="num">0</span>,    <span class="num">0</span>,   <span class="num">0</span>
+    );
+    <span class="typ">float3x3</span> <span class="var">T</span>      <span class="op">=</span> <span class="var">J</span> <span class="op">*</span> <span class="var">W</span>;
+    <span class="typ">float3x3</span> <span class="var">Sigma2</span> <span class="op">=</span> <span class="var">T</span> <span class="op">*</span> <span class="var">Sigma</span> <span class="op">*</span> <span class="fn">transpose</span>(<span class="var">T</span>);
+
+    <span class="cmt">// Store upper-triangle (a,b,c) + low-pass filter</span>
+    <span class="var">cov2D</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="typ">float3</span>(<span class="var">Sigma2</span>[<span class="num">0</span>][<span class="num">0</span>]<span class="op">+</span><span class="num">0.3f</span>, <span class="var">Sigma2</span>[<span class="num">0</span>][<span class="num">1</span>], <span class="var">Sigma2</span>[<span class="num">1</span>][<span class="num">1</span>]<span class="op">+</span><span class="num">0.3f</span>);
+
+    <span class="cmt">// 4. Project to NDC then screen pixels</span>
+    <span class="typ">float4</span> <span class="var">p_ndc</span>   <span class="op">=</span> <span class="var">proj_matrix</span>[<span class="num">0</span>] <span class="op">*</span> <span class="var">p_cam</span>;
+    <span class="var">xy_screen</span>[<span class="var">idx</span>] <span class="op">=</span> <span class="typ">float2</span>(
+        (<span class="var">p_ndc</span>.<span class="var">x</span> <span class="op">/</span> <span class="var">p_ndc</span>.<span class="var">w</span> <span class="op">+</span> <span class="num">1.0f</span>) <span class="op">*</span> <span class="num">0.5f</span> <span class="op">*</span> <span class="var">float</span>(<span class="var">W_px</span>),
+        (<span class="num">1.0f</span> <span class="op">-</span> <span class="var">p_ndc</span>.<span class="var">y</span> <span class="op">/</span> <span class="var">p_ndc</span>.<span class="var">w</span>) <span class="op">*</span> <span class="num">0.5f</span> <span class="op">*</span> <span class="var">float</span>(<span class="var">H_px</span>)
+    );
+}</div>
+  </div>
+
+  <div class="card metal-card" style="margin-top:1rem;">
+    <div class="card-bar metal-bar"></div>
+    <div class="card-label">Metal Render Kernel — Alpha Compositing (MSL)</div>
+<div class="code-header metal">Metal Shading Language · render.metal</div>
+<div class="code-block"><span class="cmt">// Metal equivalent of the CUDA renderCUDA kernel</span>
+<span class="cmt">// threadgroup = CUDA __shared__  |  threads_per_threadgroup = blockDim</span>
+<span class="kw">kernel void</span> <span class="fn">renderGaussians</span>(
+    <span class="kw">const device</span> <span class="typ">uint2</span><span class="op">*</span>   <span class="var">tile_ranges</span>   [[ <span class="var">buffer</span>(<span class="num">0</span>) ]],
+    <span class="kw">const device</span> <span class="typ">uint</span><span class="op">*</span>    <span class="var">sorted_ids</span>    [[ <span class="var">buffer</span>(<span class="num">1</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float2</span><span class="op">*</span>  <span class="var">xy</span>            [[ <span class="var">buffer</span>(<span class="num">2</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float3</span><span class="op">*</span>  <span class="var">cov2D</span>         [[ <span class="var">buffer</span>(<span class="num">3</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float</span><span class="op">*</span>   <span class="var">opacities</span>     [[ <span class="var">buffer</span>(<span class="num">4</span>) ]],
+    <span class="kw">const device</span> <span class="typ">float3</span><span class="op">*</span>  <span class="var">colours</span>       [[ <span class="var">buffer</span>(<span class="num">5</span>) ]],
+    <span class="kw">device</span> <span class="typ">float4</span><span class="op">*</span>        <span class="var">out_image</span>     [[ <span class="var">buffer</span>(<span class="num">6</span>) ]],  <span class="cmt">// RGBA</span>
+    <span class="cmt">// Threadgroup shared memory — declared here, not inside the function</span>
+    <span class="cmt">// Metal requires known size at compile time</span>
+    <span class="kw">threadgroup</span> <span class="typ">float2</span><span class="op">*</span>   <span class="var">s_xy</span>          [[ <span class="var">threadgroup</span>(<span class="num">0</span>) ]],
+    <span class="kw">threadgroup</span> <span class="typ">float3</span><span class="op">*</span>   <span class="var">s_cov</span>         [[ <span class="var">threadgroup</span>(<span class="num">1</span>) ]],
+    <span class="kw">threadgroup</span> <span class="typ">float</span><span class="op">*</span>    <span class="var">s_alpha</span>       [[ <span class="var">threadgroup</span>(<span class="num">2</span>) ]],
+    <span class="kw">threadgroup</span> <span class="typ">float3</span><span class="op">*</span>   <span class="var">s_col</span>         [[ <span class="var">threadgroup</span>(<span class="num">3</span>) ]],
+    <span class="cmt">// Thread IDs</span>
+    <span class="typ">uint2</span> <span class="var">gid</span>  [[ <span class="var">thread_position_in_grid</span>  ]],  <span class="cmt">// global pixel coord</span>
+    <span class="typ">uint2</span> <span class="var">lid</span>  [[ <span class="var">thread_position_in_threadgroup</span> ]],  <span class="cmt">// local (0..15)</span>
+    <span class="typ">uint2</span> <span class="var">tgid</span> [[ <span class="var">threadgroup_position_in_grid</span>  ]]   <span class="cmt">// tile coord</span>
+) {
+    <span class="typ">uint</span> <span class="var">tg_flat</span> <span class="op">=</span> <span class="var">lid</span>.<span class="var">y</span> <span class="op">*</span> <span class="num">16</span> <span class="op">+</span> <span class="var">lid</span>.<span class="var">x</span>;   <span class="cmt">// 0..255 within tile</span>
+    <span class="typ">uint2</span> <span class="var">range</span>  <span class="op">=</span> <span class="var">tile_ranges</span>[<span class="var">tgid</span>.<span class="var">y</span> <span class="op">*</span> <span class="var">grid_w</span> <span class="op">+</span> <span class="var">tgid</span>.<span class="var">x</span>];
+
+    <span class="typ">float3</span> <span class="var">C</span> <span class="op">=</span> <span class="typ">float3</span>(<span class="num">0</span>);
+    <span class="typ">float</span>  <span class="var">T</span> <span class="op">=</span> <span class="num">1.0f</span>;
+
+    <span class="kw">for</span> (<span class="typ">uint</span> <span class="var">r</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">r</span> <span class="op">*</span> <span class="num">256</span> <span class="op"><</span> <span class="var">range</span>.<span class="var">y</span> <span class="op">-</span> <span class="var">range</span>.<span class="var">x</span>; <span class="op">++</span><span class="var">r</span>) {
+        <span class="cmt">// Cooperative load from device memory into threadgroup memory</span>
+        <span class="typ">uint</span> <span class="var">g_load</span> <span class="op">=</span> <span class="var">range</span>.<span class="var">x</span> <span class="op">+</span> <span class="var">r</span><span class="op">*</span><span class="num">256</span> <span class="op">+</span> <span class="var">tg_flat</span>;
+        <span class="kw">if</span> (<span class="var">g_load</span> <span class="op"><</span> <span class="var">range</span>.<span class="var">y</span>) {
+            <span class="typ">uint</span> <span class="var">g</span>    <span class="op">=</span> <span class="var">sorted_ids</span>[<span class="var">g_load</span>];
+            <span class="var">s_xy</span>   [<span class="var">tg_flat</span>] <span class="op">=</span> <span class="var">xy</span>[<span class="var">g</span>];
+            <span class="var">s_cov</span>  [<span class="var">tg_flat</span>] <span class="op">=</span> <span class="var">cov2D</span>[<span class="var">g</span>];
+            <span class="var">s_alpha</span>[<span class="var">tg_flat</span>] <span class="op">=</span> <span class="var">opacities</span>[<span class="var">g</span>];
+            <span class="var">s_col</span>  [<span class="var">tg_flat</span>] <span class="op">=</span> <span class="var">colours</span>[<span class="var">g</span>];
+        }
+        <span class="fn">threadgroup_barrier</span>(<span class="var">mem_flags</span>::<span class="var">mem_threadgroup</span>);  <span class="cmt">// = __syncthreads()</span>
+
+        <span class="kw">for</span> (<span class="typ">uint</span> <span class="var">j</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">j</span> <span class="op"><</span> <span class="num">256</span> <span class="op">&&</span> <span class="var">T</span> <span class="op">></span> <span class="num">1e-4f</span>; <span class="op">++</span><span class="var">j</span>) {
+            <span class="typ">float2</span> <span class="var">d</span>     <span class="op">=</span> <span class="typ">float2</span>(<span class="var">gid</span>) <span class="op">-</span> <span class="var">s_xy</span>[<span class="var">j</span>];
+            <span class="typ">float3</span> <span class="var">cov</span>   <span class="op">=</span> <span class="var">s_cov</span>[<span class="var">j</span>];
+            <span class="typ">float</span>  <span class="var">det</span>   <span class="op">=</span> <span class="var">cov</span>.<span class="var">x</span><span class="op">*</span><span class="var">cov</span>.<span class="var">z</span> <span class="op">-</span> <span class="var">cov</span>.<span class="var">y</span><span class="op">*</span><span class="var">cov</span>.<span class="var">y</span>;
+            <span class="typ">float</span>  <span class="var">power</span> <span class="op">=</span> <span class="op">-</span><span class="num">0.5f</span><span class="op">*</span>(<span class="var">cov</span>.<span class="var">z</span><span class="op">*</span><span class="var">d</span>.<span class="var">x</span><span class="op">*</span><span class="var">d</span>.<span class="var">x</span>
+                                 <span class="op">-</span><span class="num">2</span><span class="op">*</span><span class="var">cov</span>.<span class="var">y</span><span class="op">*</span><span class="var">d</span>.<span class="var">x</span><span class="op">*</span><span class="var">d</span>.<span class="var">y</span>
+                                 <span class="op">+</span><span class="var">cov</span>.<span class="var">x</span><span class="op">*</span><span class="var">d</span>.<span class="var">y</span><span class="op">*</span><span class="var">d</span>.<span class="var">y</span>) <span class="op">/</span> <span class="var">det</span>;
+            <span class="kw">if</span> (<span class="var">power</span> <span class="op">></span> <span class="num">0.0f</span>) <span class="kw">continue</span>;
+
+            <span class="typ">float</span> <span class="var">alpha</span> <span class="op">=</span> <span class="fn">min</span>(<span class="num">0.99f</span>, <span class="var">s_alpha</span>[<span class="var">j</span>] <span class="op">*</span> <span class="fn">exp</span>(<span class="var">power</span>));
+            <span class="kw">if</span> (<span class="var">alpha</span> <span class="op"><</span> <span class="num">1.0f</span><span class="op">/</span><span class="num">255.0f</span>) <span class="kw">continue</span>;
+
+            <span class="var">C</span>  <span class="op">+=</span> <span class="var">s_col</span>[<span class="var">j</span>] <span class="op">*</span> <span class="var">alpha</span> <span class="op">*</span> <span class="var">T</span>;
+            <span class="var">T</span>  <span class="op">*=</span> (<span class="num">1.0f</span> <span class="op">-</span> <span class="var">alpha</span>);
+        }
+        <span class="fn">threadgroup_barrier</span>(<span class="var">mem_flags</span>::<span class="var">mem_threadgroup</span>);
+    }
+
+    <span class="kw">if</span> (<span class="var">gid</span>.<span class="var">x</span> <span class="op"><</span> <span class="var">width</span> <span class="op">&&</span> <span class="var">gid</span>.<span class="var">y</span> <span class="op"><</span> <span class="var">height</span>)
+        <span class="var">out_image</span>[<span class="var">gid</span>.<span class="var">y</span><span class="op">*</span><span class="var">width</span><span class="op">+</span><span class="var">gid</span>.<span class="var">x</span>] <span class="op">=</span> <span class="typ">float4</span>(<span class="var">C</span> <span class="op">+</span> <span class="var">T</span><span class="op">*</span><span class="var">bg_col</span>, <span class="num">1.0f</span>);
+}</div>
+  </div>
+
+  <div class="card metal-card" style="margin-top:1rem;">
+    <div class="card-bar metal-bar"></div>
+    <div class="card-label">Dispatching Metal Kernels from Swift/ObjC</div>
+<div class="code-header metal">Swift · MetalRasterizer.swift</div>
+<div class="code-block"><span class="kw">import</span> <span class="var">Metal</span>, <span class="var">Foundation</span>
+
+<span class="kw">class</span> <span class="typ">GaussianRasterizer</span> {
+    <span class="kw">let</span> <span class="var">device</span>:  <span class="typ">MTLDevice</span>
+    <span class="kw">let</span> <span class="var">queue</span>:   <span class="typ">MTLCommandQueue</span>
+    <span class="kw">let</span> <span class="var">library</span>: <span class="typ">MTLLibrary</span>
+    <span class="kw">var</span> <span class="var">preprocessPSO</span>: <span class="typ">MTLComputePipelineState</span>!
+    <span class="kw">var</span> <span class="var">renderPSO</span>:     <span class="typ">MTLComputePipelineState</span>!
+
+    <span class="kw">init</span>() {
+        <span class="var">device</span>  <span class="op">=</span> <span class="fn">MTLCreateSystemDefaultDevice</span>()!  <span class="cmt">// M3 GPU</span>
+        <span class="var">queue</span>   <span class="op">=</span> <span class="var">device</span>.<span class="fn">makeCommandQueue</span>()!
+        <span class="cmt">// Compile .metal files at build time → embedded in app bundle</span>
+        <span class="var">library</span> <span class="op">=</span> <span class="var">device</span>.<span class="fn">makeDefaultLibrary</span>()!
+
+        <span class="kw">let</span> <span class="var">preFn</span>  <span class="op">=</span> <span class="var">library</span>.<span class="fn">makeFunction</span>(<span class="var">name</span>: <span class="str">"preprocessGaussians"</span>)!
+        <span class="kw">let</span> <span class="var">renFn</span>  <span class="op">=</span> <span class="var">library</span>.<span class="fn">makeFunction</span>(<span class="var">name</span>: <span class="str">"renderGaussians"</span>)!
+        <span class="var">preprocessPSO</span> <span class="op">=</span> <span class="kw">try</span>! <span class="var">device</span>.<span class="fn">makeComputePipelineState</span>(<span class="var">function</span>: <span class="var">preFn</span>)
+        <span class="var">renderPSO</span>     <span class="op">=</span> <span class="kw">try</span>! <span class="var">device</span>.<span class="fn">makeComputePipelineState</span>(<span class="var">function</span>: <span class="var">renFn</span>)
+    }
+
+    <span class="kw">func</span> <span class="fn">render</span>(<span class="var">gaussians</span>: <span class="typ">GaussianBuffers</span>, <span class="var">camera</span>: <span class="typ">CameraParams</span>) {
+        <span class="kw">let</span> <span class="var">cmd</span> <span class="op">=</span> <span class="var">queue</span>.<span class="fn">makeCommandBuffer</span>()!
+        <span class="kw">let</span> <span class="var">enc</span> <span class="op">=</span> <span class="var">cmd</span>.<span class="fn">makeComputeCommandEncoder</span>()!
+
+        <span class="cmt">// ── Preprocess pass ───────────────────────────────────────────</span>
+        <span class="var">enc</span>.<span class="fn">setComputePipelineState</span>(<span class="var">preprocessPSO</span>)
+        <span class="var">enc</span>.<span class="fn">setBuffer</span>(<span class="var">gaussians</span>.<span class="var">positions</span>,  <span class="var">offset</span>: <span class="num">0</span>, <span class="var">index</span>: <span class="num">0</span>)
+        <span class="var">enc</span>.<span class="fn">setBuffer</span>(<span class="var">gaussians</span>.<span class="var">scales</span>,     <span class="var">offset</span>: <span class="num">0</span>, <span class="var">index</span>: <span class="num">1</span>)
+        <span class="var">enc</span>.<span class="fn">setBuffer</span>(<span class="var">gaussians</span>.<span class="var">rotations</span>,  <span class="var">offset</span>: <span class="num">0</span>, <span class="var">index</span>: <span class="num">2</span>)
+        <span class="cmt">// ... bind remaining buffers</span>
+
+        <span class="kw">let</span> <span class="var">N</span>       <span class="op">=</span> <span class="var">gaussians</span>.<span class="var">count</span>
+        <span class="kw">let</span> <span class="var">tSize</span>   <span class="op">=</span> <span class="typ">MTLSize</span>(<span class="var">width</span>: <span class="num">256</span>, <span class="var">height</span>: <span class="num">1</span>, <span class="var">depth</span>: <span class="num">1</span>)
+        <span class="kw">let</span> <span class="var">gSize</span>   <span class="op">=</span> <span class="typ">MTLSize</span>(<span class="var">width</span>: (<span class="var">N</span><span class="op">+</span><span class="num">255</span>)<span class="op">/</span><span class="num">256</span>, <span class="var">height</span>: <span class="num">1</span>, <span class="var">depth</span>: <span class="num">1</span>)
+        <span class="var">enc</span>.<span class="fn">dispatchThreadgroups</span>(<span class="var">gSize</span>, <span class="var">threadsPerThreadgroup</span>: <span class="var">tSize</span>)
+
+        <span class="cmt">// ── Sort by depth (MPS radix sort) ────────────────────────────</span>
+        <span class="cmt">// MPSMatrixSortByKey or custom bitonic sort</span>
+
+        <span class="cmt">// ── Render pass ───────────────────────────────────────────────</span>
+        <span class="var">enc</span>.<span class="fn">setComputePipelineState</span>(<span class="var">renderPSO</span>)
+        <span class="kw">let</span> <span class="var">tileGrid</span> <span class="op">=</span> <span class="typ">MTLSize</span>(<span class="var">width</span>: (<span class="var">W</span><span class="op">+</span><span class="num">15</span>)<span class="op">/</span><span class="num">16</span>, <span class="var">height</span>: (<span class="var">H</span><span class="op">+</span><span class="num">15</span>)<span class="op">/</span><span class="num">16</span>, <span class="var">depth</span>: <span class="num">1</span>)
+        <span class="kw">let</span> <span class="var">tileSize</span> <span class="op">=</span> <span class="typ">MTLSize</span>(<span class="var">width</span>: <span class="num">16</span>, <span class="var">height</span>: <span class="num">16</span>, <span class="var">depth</span>: <span class="num">1</span>)
+        <span class="var">enc</span>.<span class="fn">dispatchThreadgroups</span>(<span class="var">tileGrid</span>, <span class="var">threadsPerThreadgroup</span>: <span class="var">tileSize</span>)
+
+        <span class="var">enc</span>.<span class="fn">endEncoding</span>()
+        <span class="var">cmd</span>.<span class="fn">commit</span>()   <span class="cmt">// async — GPU runs while CPU continues</span>
+    }
+}</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 4 — PYTHON TRAINING LOOP
+═══════════════════════════════════════════ -->
+<div class="section" id="python">
+  <div class="eyebrow">Section 05</div>
+  <h2>Python Training Loop — Device-Agnostic</h2>
+  <p>The Python layer works for both CUDA and Metal (MPS) by using PyTorch's device abstraction. Only the rasterizer call differs — everything else is identical.</p>
+
+  <div class="card both-card">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">Training Loop — Works on CUDA and MPS</div>
+<div class="code-header py">Python · train.py</div>
+<div class="code-block"><span class="kw">import</span> <span class="var">torch</span>
+<span class="kw">from</span> <span class="var">gsplat</span> <span class="kw">import</span> <span class="fn">rasterization</span>  <span class="cmt"># gsplat: works on CUDA + MPS</span>
+
+<span class="kw">def</span> <span class="fn">train</span>(<span class="var">scene_path</span>: <span class="typ">str</span>):
+    <span class="cmt"># ── Device detection ──────────────────────────────────────────</span>
+    <span class="kw">if</span> <span class="var">torch</span>.<span class="var">cuda</span>.<span class="fn">is_available</span>():
+        <span class="var">device</span> <span class="op">=</span> <span class="fn">torch.device</span>(<span class="str">"cuda:0"</span>)
+        <span class="fn">print</span>(<span class="str">f"CUDA  →  {torch.cuda.get_device_name(0)}"</span>)
+    <span class="kw">elif</span> <span class="var">torch</span>.<span class="var">backends</span>.<span class="var">mps</span>.<span class="fn">is_available</span>():
+        <span class="var">device</span> <span class="op">=</span> <span class="fn">torch.device</span>(<span class="str">"mps"</span>)          <span class="cmt"># M1/M2/M3 GPU</span>
+        <span class="fn">print</span>(<span class="str">"Metal MPS  →  Apple Silicon GPU"</span>)
+    <span class="kw">else</span>:
+        <span class="var">device</span> <span class="op">=</span> <span class="fn">torch.device</span>(<span class="str">"cpu"</span>)          <span class="cmt"># fallback</span>
+
+    <span class="cmt"># ── Initialise model ──────────────────────────────────────────</span>
+    <span class="var">gaussians</span> <span class="op">=</span> <span class="typ">GaussianModel</span>(<span class="var">sh_degree</span><span class="op">=</span><span class="num">3</span>)
+    <span class="var">pcd</span>       <span class="op">=</span> <span class="fn">load_point_cloud</span>(<span class="var">scene_path</span>)  <span class="cmt"># from COLMAP</span>
+    <span class="var">gaussians</span>.<span class="fn">create_from_pcd</span>(<span class="var">pcd</span>, <span class="var">device</span><span class="op">=</span><span class="typ">str</span>(<span class="var">device</span>))
+
+    <span class="cmt"># ── Optimizer — different LR per parameter group ──────────────</span>
+    <span class="var">opt</span> <span class="op">=</span> <span class="var">torch</span>.<span class="var">optim</span>.<span class="typ">Adam</span>([
+        {<span class="str">'params'</span>: [<span class="var">gaussians</span>._xyz],          <span class="str">'lr'</span>: <span class="num">1.6e-4</span>},
+        {<span class="str">'params'</span>: [<span class="var">gaussians</span>._scaling],       <span class="str">'lr'</span>: <span class="num">5e-3</span> },
+        {<span class="str">'params'</span>: [<span class="var">gaussians</span>._rotation],      <span class="str">'lr'</span>: <span class="num">1e-3</span> },
+        {<span class="str">'params'</span>: [<span class="var">gaussians</span>._opacity],       <span class="str">'lr'</span>: <span class="num">5e-2</span> },
+        {<span class="str">'params'</span>: [<span class="var">gaussians</span>._features_dc],   <span class="str">'lr'</span>: <span class="num">2.5e-3</span>},
+        {<span class="str">'params'</span>: [<span class="var">gaussians</span>._features_rest],  <span class="str">'lr'</span>: <span class="num">2.5e-4</span>},
+    ], <span class="var">eps</span><span class="op">=</span><span class="num">1e-15</span>)
+
+    <span class="var">training_cameras</span> <span class="op">=</span> <span class="fn">load_cameras</span>(<span class="var">scene_path</span>)
+
+    <span class="kw">for</span> <span class="var">step</span> <span class="kw">in</span> <span class="fn">range</span>(<span class="num">30_000</span>):
+        <span class="cmt"># ── Pick a training view ──────────────────────────────────</span>
+        <span class="var">cam</span> <span class="op">=</span> <span class="fn">random.choice</span>(<span class="var">training_cameras</span>)
+
+        <span class="cmt"># ── Forward: render from current Gaussians ────────────────</span>
+        <span class="cmt"># gsplat.rasterization dispatches the right backend</span>
+        <span class="var">rendered</span>, <span class="var">alphas</span>, <span class="var">meta</span> <span class="op">=</span> <span class="fn">rasterization</span>(
+            <span class="var">means</span>    <span class="op">=</span> <span class="var">gaussians</span>.<span class="var">get_xyz</span>,           <span class="cmt"># [N,3]</span>
+            <span class="var">quats</span>    <span class="op">=</span> <span class="var">gaussians</span>.<span class="var">get_rotation</span>,      <span class="cmt"># [N,4]</span>
+            <span class="var">scales</span>   <span class="op">=</span> <span class="var">gaussians</span>.<span class="var">get_scaling</span>,       <span class="cmt"># [N,3]</span>
+            <span class="var">opacities</span><span class="op">=</span> <span class="var">gaussians</span>.<span class="var">get_opacity</span>,       <span class="cmt"># [N,1]</span>
+            <span class="var">colors</span>   <span class="op">=</span> <span class="fn">eval_sh</span>(<span class="var">gaussians</span>.<span class="var">_features_dc</span>,
+                                 <span class="var">gaussians</span>.<span class="var">_features_rest</span>,
+                                 <span class="var">cam</span>.<span class="var">direction</span>),      <span class="cmt"># [N,3]</span>
+            <span class="var">viewmats</span> <span class="op">=</span> <span class="var">cam</span>.<span class="var">view_matrix</span>.<span class="fn">unsqueeze</span>(<span class="num">0</span>), <span class="cmt"># [1,4,4]</span>
+            <span class="var">Ks</span>       <span class="op">=</span> <span class="var">cam</span>.<span class="var">intrinsics</span>.<span class="fn">unsqueeze</span>(<span class="num">0</span>),  <span class="cmt"># [1,3,3]</span>
+            <span class="var">width</span>    <span class="op">=</span> <span class="var">cam</span>.<span class="var">width</span>, <span class="var">height</span><span class="op">=</span><span class="var">cam</span>.<span class="var">height</span>,
+        )
+
+        <span class="cmt"># ── Loss: L1 + SSIM ──────────────────────────────────────</span>
+        <span class="var">gt</span>     <span class="op">=</span> <span class="var">cam</span>.<span class="var">gt_image</span>.<span class="fn">to</span>(<span class="var">device</span>)
+        <span class="var">l1</span>     <span class="op">=</span> <span class="fn">l1_loss</span>(<span class="var">rendered</span>, <span class="var">gt</span>)
+        <span class="var">ssim_v</span> <span class="op">=</span> <span class="fn">ssim_loss</span>(<span class="var">rendered</span>, <span class="var">gt</span>)
+        <span class="var">loss</span>   <span class="op">=</span> (<span class="num">1</span> <span class="op">-</span> <span class="num">0.2</span>) <span class="op">*</span> <span class="var">l1</span> <span class="op">+</span> <span class="num">0.2</span> <span class="op">*</span> <span class="var">ssim_v</span>
+
+        <span class="cmt"># ── Backward + step ──────────────────────────────────────</span>
+        <span class="var">opt</span>.<span class="fn">zero_grad</span>()
+        <span class="var">loss</span>.<span class="fn">backward</span>()  <span class="cmt"># gradients flow through gsplat → all 59 params</span>
+        <span class="var">opt</span>.<span class="fn">step</span>()
+
+        <span class="cmt"># ── Densification (every 100 steps) ──────────────────────</span>
+        <span class="kw">if</span> <span class="var">step</span> <span class="op">%</span> <span class="num">100</span> <span class="op">==</span> <span class="num">0</span> <span class="kw">and</span> <span class="var">step</span> <span class="op"><</span> <span class="num">15_000</span>:
+            <span class="fn">densify_and_prune</span>(<span class="var">gaussians</span>, <span class="var">opt</span>, <span class="var">meta</span>)
+
+        <span class="cmt"># ── Opacity reset (every 3000 steps) ─────────────────────</span>
+        <span class="kw">if</span> <span class="var">step</span> <span class="op">%</span> <span class="num">3000</span> <span class="op">==</span> <span class="num">0</span>:
+            <span class="var">gaussians</span>._opacity.<span class="var">data</span>.<span class="fn">clamp_</span>(<span class="var">max</span><span class="op">=</span><span class="fn">inverse_sigmoid</span>(<span class="num">0.01</span>))
+
+        <span class="cmt"># ── Ramp up SH degree every 1000 steps ───────────────────</span>
+        <span class="kw">if</span> <span class="var">step</span> <span class="op">%</span> <span class="num">1000</span> <span class="op">==</span> <span class="num">0</span>:
+            <span class="var">gaussians</span>.<span class="var">active_sh_degree</span> <span class="op">=</span> <span class="fn">min</span>(
+                <span class="var">gaussians</span>.<span class="var">active_sh_degree</span> <span class="op">+</span> <span class="num">1</span>,
+                <span class="var">gaussians</span>.<span class="var">max_sh_degree</span>)</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 5 — MEMORY LAYOUT
+═══════════════════════════════════════════ -->
+<div class="section" id="memory">
+  <div class="eyebrow">Section 06</div>
+  <h2>Memory Architecture</h2>
+  <p>Memory is the biggest constraint. 3M Gaussians × 59 params × 4 bytes = <strong>~700 MB just for parameters</strong>. Add gradients, optimizer state (Adam keeps 2 moments), and intermediate buffers and you're at 3–5 GB for training.</p>
+
+  <div class="card both-card">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">Memory Layout Comparison — CUDA vs M3 Unified Memory</div>
+    <canvas id="cMem" width="1000" height="260" style="width:100%;max-width:1000px;"></canvas>
+    <p class="caption">CUDA must copy data over PCIe when moving from CPU — M3 unified memory eliminates this entirely. The same physical DRAM is CPU + GPU memory.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="card cuda-card">
+      <div class="card-bar cuda-bar"></div>
+      <div class="card-label">CUDA Memory Budget (3M Gaussians)</div>
+      <div class="perf-row"><div class="perf-label">Parameters (fp32)</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:30%;background:var(--cuda);"><span>700 MB</span></div></div><div class="perf-val">700 MB</div></div>
+      <div class="perf-row"><div class="perf-label">Gradients</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:30%;background:rgba(118,185,0,0.7);"><span>700 MB</span></div></div><div class="perf-val">700 MB</div></div>
+      <div class="perf-row"><div class="perf-label">Adam moments (×2)</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:59%;background:rgba(118,185,0,0.5);"><span>1.4 GB</span></div></div><div class="perf-val">1.4 GB</div></div>
+      <div class="perf-row"><div class="perf-label">Sort buffers</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:12%;background:rgba(118,185,0,0.35);"><span>300 MB</span></div></div><div class="perf-val">300 MB</div></div>
+      <div class="perf-row"><div class="perf-label">Tile/render buffers</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:8%;background:rgba(118,185,0,0.25);"><span>200 MB</span></div></div><div class="perf-val">200 MB</div></div>
+      <div style="border-top:1px solid var(--border);margin-top:.5rem;padding-top:.5rem;">
+        <div class="perf-row"><div class="perf-label" style="color:var(--cuda);font-weight:700;">TOTAL</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:100%;background:linear-gradient(90deg,var(--cuda),#a8d400);"><span style="color:#000;">~4 GB VRAM</span></div></div><div class="perf-val" style="color:var(--cuda);">~4 GB</div></div>
+      </div>
+      <p style="margin-top:.5rem;">→ RTX 3090 (24GB) comfortable · RTX 3080 (10GB) tight · RTX 3060 (8GB) needs reduce_gaussian_count</p>
+    </div>
+    <div class="card metal-card">
+      <div class="card-bar metal-bar"></div>
+      <div class="card-label">M3 Unified Memory Budget</div>
+      <div class="perf-row"><div class="perf-label">Parameters (fp32)</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:30%;background:var(--metal2);"><span>700 MB</span></div></div><div class="perf-val">700 MB</div></div>
+      <div class="perf-row"><div class="perf-label">Gradients</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:30%;background:rgba(255,106,0,0.7);"><span>700 MB</span></div></div><div class="perf-val">700 MB</div></div>
+      <div class="perf-row"><div class="perf-label">Adam moments (×2)</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:59%;background:rgba(255,106,0,0.5);"><span>1.4 GB</span></div></div><div class="perf-val">1.4 GB</div></div>
+      <div class="perf-row"><div class="perf-label">Sort + render</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:21%;background:rgba(255,106,0,0.35);"><span>500 MB</span></div></div><div class="perf-val">500 MB</div></div>
+      <div class="perf-row"><div class="perf-label">OS / system share</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:25%;background:rgba(168,169,173,0.3);"><span>600 MB</span></div></div><div class="perf-val">600 MB</div></div>
+      <div style="border-top:1px solid var(--border);margin-top:.5rem;padding-top:.5rem;">
+        <div class="perf-row"><div class="perf-label" style="color:var(--metal2);font-weight:700;">TOTAL</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:100%;background:linear-gradient(90deg,var(--metal2),var(--metal));"><span style="color:#000;">~4 GB unified RAM</span></div></div><div class="perf-val" style="color:var(--metal2);">~4 GB</div></div>
+      </div>
+      <p style="margin-top:.5rem;">→ M3 (8GB) needs 1M Gaussians max · M3 Pro (18GB) comfortable · M3 Max (36GB/48GB) full 3M+</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 6 — PERFORMANCE
+═══════════════════════════════════════════ -->
+<div class="section" id="perf">
+  <div class="eyebrow">Section 07</div>
+  <h2>Performance Comparison</h2>
+
+  <div class="card both-card">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">Training Time · Inference FPS · Scene Scale (1080p, ~3M Gaussians)</div>
+    <canvas id="cPerf" width="1000" height="280" style="width:100%;max-width:1000px;"></canvas>
+  </div>
+
+  <div class="card both-card" style="margin-top:1rem;">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">Feature Matrix</div>
+    <table class="comp-table">
+      <thead><tr><th>Feature</th><th>CUDA (RTX 4090)</th><th>M3 Max (40-core GPU)</th><th>M3 (10-core)</th></tr></thead>
+      <tbody>
+        <tr><td>Training time (30K steps)</td><td class="good">~8 min</td><td class="ok">~35 min</td><td class="bad">~90 min</td></tr>
+        <tr><td>Inference FPS (1080p)</td><td class="good">200+ FPS</td><td class="ok">60–90 FPS</td><td class="ok">30–50 FPS</td></tr>
+        <tr><td>Max Gaussians (training)</td><td class="good">6M+ (24GB VRAM)</td><td class="good">3–4M (36GB)</td><td class="bad">1M (8GB)</td></tr>
+        <tr><td>Gradient precision</td><td class="good">fp32 native</td><td class="ok">fp32 (MPS quirks)</td><td class="ok">fp32 (MPS)</td></tr>
+        <tr><td>PCIe bandwidth overhead</td><td class="bad">Yes (CPU↔GPU)</td><td class="good">None (unified)</td><td class="good">None (unified)</td></tr>
+        <tr><td>Community support</td><td class="good">Excellent</td><td class="ok">Growing (gsplat)</td><td class="ok">Growing (gsplat)</td></tr>
+        <tr><td>Custom kernel tooling</td><td class="good">nvcc, nsight</td><td class="ok">Metal, Instruments</td><td class="ok">Metal, Instruments</td></tr>
+        <tr><td>Best library</td><td class="good">gaussian-splatting</td><td class="ok">gsplat (pip)</td><td class="ok">gsplat (pip)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 7 — SETUP
+═══════════════════════════════════════════ -->
+<div class="section" id="setup">
+  <div class="eyebrow">Section 08</div>
+  <h2>Getting Started — Installation</h2>
+
+  <div class="two-col">
+    <div class="card cuda-card">
+      <div class="card-bar cuda-bar"></div>
+      <div class="card-label">CUDA Setup (Linux / Windows WSL2)</div>
+<div class="code-header cuda">bash · CUDA install</div>
+<div class="code-block"><span class="cmt"># 1. Prerequisites</span>
+<span class="var">conda create</span> <span class="op">-n</span> <span class="var">gs</span> <span class="var">python</span><span class="op">=</span><span class="num">3.10</span>
+<span class="var">conda activate gs</span>
+
+<span class="cmt"># 2. PyTorch with CUDA 11.8</span>
+<span class="var">pip install torch torchvision</span> \
+    <span class="op">--index-url</span> <span class="str">https://download.pytorch.org/whl/cu118</span>
+
+<span class="cmt"># 3. gsplat — the cleanest implementation</span>
+<span class="cmt">#    Compiles CUDA kernels on first run</span>
+<span class="var">pip install gsplat</span>
+
+<span class="cmt"># 4. COLMAP for point cloud init</span>
+<span class="var">conda install</span> <span class="op">-c</span> <span class="var">conda-forge colmap</span>
+
+<span class="cmt"># 5. Verify</span>
+<span class="kw">python</span> <span class="op">-c</span> <span class="str">"import torch; print(torch.cuda.get_device_name(0))"</span>
+<span class="cmt"># → NVIDIA GeForce RTX ...</span></div>
+    </div>
+
+    <div class="card metal-card">
+      <div class="card-bar metal-bar"></div>
+      <div class="card-label">Metal / MPS Setup (macOS Sonoma, M3)</div>
+<div class="code-header metal">bash · Apple Silicon install</div>
+<div class="code-block"><span class="cmt"># 1. Prerequisites (macOS 14+ Sonoma required for MPS)</span>
+<span class="var">conda create</span> <span class="op">-n</span> <span class="var">gs_metal</span> <span class="var">python</span><span class="op">=</span><span class="num">3.11</span>
+<span class="var">conda activate gs_metal</span>
+
+<span class="cmt"># 2. PyTorch nightly for best MPS support on M3</span>
+<span class="var">pip install</span> <span class="op">--pre</span> <span class="var">torch torchvision</span> \
+    <span class="op">--index-url</span> <span class="str">https://download.pytorch.org/whl/nightly/cpu</span>
+
+<span class="cmt"># 3. gsplat — has MPS backend via PyTorch ops</span>
+<span class="cmt">#    (custom Metal kernels for sort/raster on roadmap)</span>
+<span class="var">pip install gsplat</span>
+
+<span class="cmt"># 4. COLMAP via Homebrew</span>
+<span class="var">brew install colmap</span>
+
+<span class="cmt"># 5. Verify MPS</span>
+<span class="kw">python</span> <span class="op">-c</span> <span class="str">"
+import torch
+print(torch.backends.mps.is_available())   # True
+print(torch.backends.mps.is_built())        # True
+x = torch.ones(3, device='mps')
+print(x)  # tensor([1., 1., 1.], device='mps:0')
+"</span></div>
+    </div>
+  </div>
+
+  <div class="card both-card" style="margin-top:1rem;">
+    <div class="card-bar both-bar"></div>
+    <div class="card-label">Quick Start — Capture and Train Your Own Scene</div>
+<div class="code-header py">bash + Python · end-to-end</div>
+<div class="code-block"><span class="cmt"># ── 1. Capture: take 100–200 photos around object/scene ────────
+# ── 2. Run COLMAP to get camera poses + sparse point cloud ─────</span>
+<span class="var">colmap automatic_reconstructor</span> \
+    <span class="op">--workspace_path</span> <span class="var">./my_scene</span> \
+    <span class="op">--image_path</span>     <span class="var">./my_scene/images</span>
+
+<span class="cmt"># ── 3. Convert COLMAP output → gsplat format ────────────────────</span>
+<span class="kw">python</span> <span class="var">convert.py</span> <span class="op">-s</span> <span class="var">./my_scene</span>
+
+<span class="cmt"># ── 4. Train — auto-detects CUDA or MPS ─────────────────────────</span>
+<span class="kw">python</span> <span class="var">train.py</span> \
+    <span class="op">--source_path</span>  <span class="var">./my_scene</span> \
+    <span class="op">--model_path</span>   <span class="var">./output</span> \
+    <span class="op">--iterations</span>   <span class="num">30000</span> \
+    <span class="op">--densify_until_iter</span> <span class="num">15000</span>
+
+<span class="cmt"># ── 5. Render novel views ────────────────────────────────────────</span>
+<span class="kw">python</span> <span class="var">render.py</span> <span class="op">-m</span> <span class="var">./output</span>
+
+<span class="cmt"># ── M3-specific: limit Gaussians for 8GB unified memory ─────────</span>
+<span class="kw">python</span> <span class="var">train.py</span> <span class="op">--source_path</span> <span class="var">./my_scene</span> \
+    <span class="op">--max_num_splats</span>    <span class="num">1_000_000</span> \  <span class="cmt"># cap at 1M for 8GB</span>
+    <span class="op">--cap_max_gaussians</span> <span class="num">1_500_000</span>    <span class="cmt"># hard ceiling</span></div>
+  </div>
+
+  <div class="note">On M3 with 8GB unified memory, the OS reserves ~2GB, leaving ~6GB. At 3M Gaussians this is insufficient. Use <strong>--max_num_splats 800000</strong> for safe training. M3 Pro (18GB) or M3 Max (36/48GB) can run full scenes without limits.</div>
+  <div class="tip">The <strong>gsplat</strong> library (pip install gsplat) is the recommended implementation for both CUDA and MPS. It's actively maintained, has a clean API, and supports mixed-precision training which halves memory usage — critical for M3 with 8GB.</div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+const $ = id => document.getElementById(id);
+const ctx = id => { const c=$(id); return c?c.getContext('2d'):null; };
+
+function roundRect(c,x,y,w,h,r,fill,stroke,lw=1){
+  c.beginPath(); c.roundRect(x,y,w,h,r);
+  if(fill){c.fillStyle=fill;c.fill();}
+  if(stroke){c.strokeStyle=stroke;c.lineWidth=lw;c.stroke();}
+}
+
+// ═══════════════════════
+// ARCH DIAGRAM
+// ═══════════════════════
+(function(){
+  const c=ctx('cArch'); if(!c)return;
+  const W=1000,H=300;
+  c.fillStyle='#090e1a'; c.fillRect(0,0,W,H);
+
+  const layers=[
+    {label:'Python Training Loop',sub:'train.py · loss · optimizer · densification',col:'#00d4ff',y:20,h:52},
+    {label:'PyTorch Autograd',sub:'gradient tape · backward pass through rasterizer',col:'#9b8af5',y:88,h:44},
+    {label:'C++ Binding Layer',sub:'pybind11 · torch::autograd::Function · device dispatch',col:'#ffb700',y:148,h:44},
+  ];
+
+  layers.forEach(l=>{
+    roundRect(c,20,l.y,960,l.h,8,`rgba(${hexRgb(l.col)},0.1)`,`rgba(${hexRgb(l.col)},0.4)`);
+    c.fillStyle=l.col; c.font='700 10px JetBrains Mono, monospace'; c.textAlign='left';
+    c.fillText(l.label,36,l.y+18);
+    c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 9px JetBrains Mono';
+    c.fillText(l.sub,36,l.y+33);
+  });
+
+  // Branch at bottom
+  const midY=210;
+  c.beginPath(); c.moveTo(W/2,192); c.lineTo(W/2,midY);
+  c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1.5; c.stroke();
+  c.beginPath(); c.moveTo(W/2,midY); c.lineTo(240,midY);
+  c.beginPath(); c.moveTo(W/2,midY); c.lineTo(760,midY);
+  c.stroke();
+  c.beginPath(); c.moveTo(240,midY); c.lineTo(240,220);
+  c.moveTo(235,215); c.lineTo(240,220); c.lineTo(245,215); c.stroke();
+  c.beginPath(); c.moveTo(760,midY); c.lineTo(760,220);
+  c.moveTo(755,215); c.lineTo(760,220); c.lineTo(765,215); c.stroke();
+
+  // CUDA box
+  roundRect(c,20,220,450,65,10,'rgba(118,185,0,0.08)','rgba(118,185,0,0.4)');
+  c.fillStyle='#76b900'; c.font='700 10px JetBrains Mono'; c.textAlign='left';
+  c.fillText('CUDA Rasterizer',36,240);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 9px JetBrains Mono';
+  c.fillText('preprocess.cu · forward.cu · backward.cu',36,255);
+  c.fillText('Thrust radix sort · cuBLAS · NVIDIA GPU',36,268);
+
+  // Metal box
+  roundRect(c,530,220,450,65,10,'rgba(255,106,0,0.07)','rgba(255,106,0,0.35)');
+  c.fillStyle='#ff6a00'; c.font='700 10px JetBrains Mono'; c.textAlign='left';
+  c.fillText('Metal Rasterizer (MPS)',546,240);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 9px JetBrains Mono';
+  c.fillText('preprocess.metal · render.metal (MSL)',546,255);
+  c.fillText('MPS sort · MPSGraph · Apple Silicon GPU',546,268);
+
+  // label
+  c.fillStyle='rgba(0,212,255,0.5)'; c.font='600 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('Same Python API — different low-level paths',W/2,H-5);
+
+  function hexRgb(h){ return `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`; }
+})();
+
+function hexRgb(h){ return `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`; }
+
+// ═══════════════════════
+// SOA vs AOS
+// ═══════════════════════
+(function(){
+  const c=ctx('cSoA'); if(!c)return;
+  const W=1000,H=160;
+  c.fillStyle='#090e1a'; c.fillRect(0,0,W,H);
+
+  // AOS (left — bad)
+  roundRect(c,10,10,420,H-20,10,'rgba(255,77,109,0.04)','rgba(255,77,109,0.2)');
+  c.fillStyle='rgba(255,77,109,0.7)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('✗  AoS — Array of Structures (bad for GPU)',220,28);
+
+  const aos=[{label:'G0',cols:['x','y','z','sx','sy','sz','q0','q1','α','r','g','b']},
+             {label:'G1',cols:['x','y','z','sx','sy','sz','q0','q1','α','r','g','b']},
+             {label:'G2',cols:['x','y','z','sx','sy','sz','q0','q1','α','r','g','b']}];
+  const cols=['#00d4ff','#00d4ff','#00d4ff','#ff6a00','#ff6a00','#ff6a00','#9b8af5','#9b8af5','#ff3e5e','#76b900','#76b900','#76b900'];
+  aos.forEach((g,gi)=>{
+    g.cols.forEach((f,fi)=>{
+      const bx=16+fi*28,by=40+gi*30,bw=26,bh=24;
+      roundRect(c,bx,by,bw,bh,3,`rgba(${hexRgb(cols[fi])},0.25)`,`rgba(${hexRgb(cols[fi])},0.4)`);
+      c.fillStyle=cols[fi]; c.font='600 7px JetBrains Mono'; c.textAlign='center';
+      c.fillText(f,bx+bw/2,by+bh/2+3);
+    });
+    c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px JetBrains Mono'; c.textAlign='left';
+    c.fillText(g.label,380,40+gi*30+15);
+  });
+  c.fillStyle='rgba(255,77,109,0.5)'; c.font='600 8px JetBrains Mono'; c.textAlign='center';
+  c.fillText('All fields interleaved — GPU warp loads x,y,z from 3 different positions',220,H-8);
+
+  // SoA (right — good)
+  roundRect(c,570,10,420,H-20,10,'rgba(118,185,0,0.04)','rgba(118,185,0,0.2)');
+  c.fillStyle='rgba(118,185,0,0.7)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('✓  SoA — Structure of Arrays (GPU optimal)',780,28);
+
+  const fields=[
+    {name:'positions[]',col:'#00d4ff'},
+    {name:'scales[]',col:'#ff6a00'},
+    {name:'rotations[]',col:'#9b8af5'},
+    {name:'opacities[]',col:'#ff3e5e'},
+    {name:'colors[]',col:'#76b900'},
+  ];
+  fields.forEach((f,fi)=>{
+    const ry=38+fi*22;
+    roundRect(c,580,ry,340,18,4,`rgba(${hexRgb(f.col)},0.15)`,`rgba(${hexRgb(f.col)},0.4)`);
+    ['G0','G1','G2','G3','G4','G5','G6','G7','G8','G9','G10','...'].forEach((g,gi)=>{
+      const bx=582+gi*26;
+      if(bx<916){
+        roundRect(c,bx,ry+1,24,16,2,`rgba(${hexRgb(f.col)},0.3)`);
+        c.fillStyle=f.col; c.font='500 6px JetBrains Mono'; c.textAlign='center';
+        c.fillText(g,bx+12,ry+11);
+      }
+    });
+    c.fillStyle=f.col; c.font='600 8px JetBrains Mono'; c.textAlign='left';
+    c.fillText(f.name,924,ry+13);
+  });
+  c.fillStyle='rgba(118,185,0,0.5)'; c.font='600 8px JetBrains Mono'; c.textAlign='center';
+  c.fillText('Positions contiguous → 32 threads load 32 consecutive x values in one transaction',780,H-8);
+})();
+
+// ═══════════════════════
+// TILE DIAGRAM
+// ═══════════════════════
+(function(){
+  const c=ctx('cTile'); if(!c)return;
+  const W=1000,H=200;
+  c.fillStyle='#090e1a'; c.fillRect(0,0,W,H);
+
+  // Screen with tiles
+  const scrX=20,scrY=15,scrW=300,scrH=H-30;
+  roundRect(c,scrX,scrY,scrW,scrH,8,'rgba(255,255,255,0.02)','rgba(255,255,255,0.1)');
+
+  const tileSize=scrH/7;
+  for(let tx=0;tx<Math.floor(scrW/tileSize);tx++){
+    for(let ty=0;ty<7;ty++){
+      const hx=scrX+tx*tileSize, hy=scrY+ty*tileSize;
+      const active=(tx===2&&ty===2)||(tx===3&&ty===2)||(tx===2&&ty===3)||(tx===3&&ty===3);
+      roundRect(c,hx+1,hy+1,tileSize-2,tileSize-2,2,
+        active?'rgba(0,212,255,0.2)':'rgba(255,255,255,0.02)',
+        active?'rgba(0,212,255,0.6)':'rgba(255,255,255,0.07)');
+      if(active){
+        c.fillStyle='rgba(0,212,255,0.8)'; c.font='700 7px JetBrains Mono'; c.textAlign='center';
+        c.fillText('16×16',hx+tileSize/2,hy+tileSize/2+3);
+      }
+    }
+  }
+  c.fillStyle='rgba(0,212,255,0.6)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('SCREEN',scrX+scrW/2,H-5);
+
+  // arrow
+  const ax=328,ay=H/2;
+  c.beginPath(); c.moveTo(ax,ay); c.lineTo(ax+30,ay);
+  c.moveTo(ax+25,ay-5); c.lineTo(ax+30,ay); c.lineTo(ax+25,ay+5);
+  c.strokeStyle='rgba(255,255,255,0.3)'; c.lineWidth=2; c.stroke();
+
+  // Thread block diagram
+  const blkX=370,blkY=15,blkW=200,blkH=H-30;
+  roundRect(c,blkX,blkY,blkW,blkH,8,'rgba(0,212,255,0.04)','rgba(0,212,255,0.3)');
+  c.fillStyle='rgba(0,212,255,0.6)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('CUDA BLOCK / METAL THREADGROUP',blkX+blkW/2,blkY+16);
+
+  // 16×16 thread grid
+  const tgSize=9;
+  for(let tx=0;tx<16;tx++){
+    for(let ty=0;ty<16;ty++){
+      const hx=blkX+10+tx*tgSize, hy=blkY+24+ty*tgSize;
+      c.fillStyle='rgba(0,212,255,0.3)';
+      c.fillRect(hx,hy,tgSize-1,tgSize-1);
+    }
+  }
+  c.fillStyle='rgba(0,212,255,0.7)'; c.font='600 8px JetBrains Mono'; c.textAlign='center';
+  c.fillText('256 threads (16×16)',blkX+blkW/2,H-8);
+
+  // Arrow to shared mem
+  const ax2=578,ay2=H/2;
+  c.beginPath(); c.moveTo(ax2,ay2); c.lineTo(ax2+30,ay2);
+  c.moveTo(ax2+25,ay2-5); c.lineTo(ax2+30,ay2); c.lineTo(ax2+25,ay2+5);
+  c.strokeStyle='rgba(255,255,255,0.3)'; c.lineWidth=2; c.stroke();
+
+  // Shared memory block
+  const smX=616,smY=15,smW=180,smH=H-30;
+  roundRect(c,smX,smY,smW,smH,8,'rgba(118,185,0,0.06)','rgba(118,185,0,0.3)');
+  c.fillStyle='rgba(118,185,0,0.7)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('SHARED MEMORY',smX+smW/2,smY+16);
+  c.fillStyle='rgba(118,185,0,0.7)'; c.font='700 8px JetBrains Mono'; c.textAlign='left';
+  c.fillText('threadgroup (Metal)',smX+10,smY+32);
+  c.fillText('__shared__ (CUDA)',smX+10,smY+44);
+
+  const rows=['xy[256]','cov[256]','alpha[256]','col[256]'];
+  rows.forEach((r,i)=>{
+    roundRect(c,smX+10,smY+56+i*26,smW-20,22,4,`rgba(118,185,0,0.15)`,`rgba(118,185,0,0.4)`);
+    c.fillStyle='rgba(118,185,0,0.8)'; c.font='600 8px JetBrains Mono'; c.textAlign='left';
+    c.fillText(r,smX+16,smY+71+i*26);
+  });
+  c.fillStyle='rgba(118,185,0,0.5)'; c.font='600 8px JetBrains Mono'; c.textAlign='center';
+  c.fillText('All 256 threads share',smX+smW/2,H-16);
+  c.fillText('→ 1 global load per batch',smX+smW/2,H-6);
+
+  // Global mem
+  const gmX=810,gmY=15,gmW=175,gmH=H-30;
+  roundRect(c,gmX,gmY,gmW,gmH,8,'rgba(255,183,0,0.04)','rgba(255,183,0,0.25)');
+  c.fillStyle='rgba(255,183,0,0.6)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('GLOBAL MEMORY',gmX+gmW/2,gmY+16);
+  c.fillText('VRAM / DRAM',gmX+gmW/2,gmY+28);
+  ['positions[]','scales[]','cov2D[]','opacities[]','colors[]','sorted_ids[]'].forEach((l,i)=>{
+    roundRect(c,gmX+10,gmY+38+i*22,gmW-20,18,3,'rgba(255,183,0,0.1)','rgba(255,183,0,0.25)');
+    c.fillStyle='rgba(255,183,0,0.6)'; c.font='600 7px JetBrains Mono'; c.textAlign='left';
+    c.fillText(l,gmX+16,gmY+51+i*22);
+  });
+
+  // arrow from global to shared
+  c.beginPath(); c.moveTo(gmX,ay2); c.lineTo(smX+smW+2,ay2);
+  c.moveTo(smX+smW+7,ay2-5); c.lineTo(smX+smW+2,ay2); c.lineTo(smX+smW+7,ay2+5);
+  c.strokeStyle='rgba(255,183,0,0.4)'; c.lineWidth=1.5; c.setLineDash([3,4]); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='rgba(255,183,0,0.5)'; c.font='600 7px JetBrains Mono'; c.textAlign='center';
+  c.fillText('cooperative load (256 at a time)',gmX-70,ay2-6);
+})();
+
+// ═══════════════════════
+// MEMORY DIAGRAM
+// ═══════════════════════
+(function(){
+  const c=ctx('cMem'); if(!c)return;
+  const W=1000,H=260;
+  c.fillStyle='#090e1a'; c.fillRect(0,0,W,H);
+
+  // CUDA side
+  roundRect(c,10,10,460,H-20,10,'rgba(118,185,0,0.04)','rgba(118,185,0,0.2)');
+  c.fillStyle='rgba(118,185,0,0.6)'; c.font='700 10px JetBrains Mono'; c.textAlign='center';
+  c.fillText('CUDA (NVIDIA) — Discrete GPU',240,30);
+
+  // CPU box
+  roundRect(c,20,45,180,140,8,'rgba(0,212,255,0.1)','rgba(0,212,255,0.3)');
+  c.fillStyle='rgba(0,212,255,0.7)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('CPU',110,63);
+  c.fillText('System RAM',110,76);
+  ['Python ops','NumPy','Data load'].forEach((l,i)=>{
+    roundRect(c,30,86+i*28,160,22,4,'rgba(0,212,255,0.08)','rgba(0,212,255,0.2)');
+    c.fillStyle='rgba(0,212,255,0.6)'; c.font='600 8px JetBrains Mono';
+    c.fillText(l,110,101+i*28);
+  });
+
+  // PCIe
+  const pie_y=115;
+  c.beginPath(); c.moveTo(200,pie_y); c.lineTo(260,pie_y);
+  c.strokeStyle='rgba(255,183,0,0.7)'; c.lineWidth=6; c.stroke();
+  c.fillStyle='rgba(255,183,0,0.8)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('PCIe',230,pie_y-8); c.fillText('~16 GB/s',230,pie_y+18);
+  c.beginPath(); c.moveTo(258,pie_y-4); c.lineTo(263,pie_y); c.lineTo(258,pie_y+4);
+  c.strokeStyle='rgba(255,183,0,0.7)'; c.lineWidth=2; c.stroke();
+
+  // GPU VRAM
+  roundRect(c,270,45,185,140,8,'rgba(118,185,0,0.1)','rgba(118,185,0,0.3)');
+  c.fillStyle='rgba(118,185,0,0.7)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('GPU VRAM',362,63); c.fillText('(separate)',362,76);
+  ['Gaussians','Gradients','Render buf'].forEach((l,i)=>{
+    roundRect(c,280,86+i*28,165,22,4,'rgba(118,185,0,0.1)','rgba(118,185,0,0.25)');
+    c.fillStyle='rgba(118,185,0,0.6)'; c.font='600 8px JetBrains Mono';
+    c.fillText(l,362,101+i*28);
+  });
+
+  c.fillStyle='rgba(255,183,0,0.5)'; c.font='600 8px JetBrains Mono'; c.textAlign='center';
+  c.fillText('⚠ copy bottleneck on every transfer',240,200);
+
+  // Metal side
+  roundRect(c,530,10,460,H-20,10,'rgba(255,106,0,0.04)','rgba(255,106,0,0.2)');
+  c.fillStyle='rgba(255,106,0,0.6)'; c.font='700 10px JetBrains Mono'; c.textAlign='center';
+  c.fillText('Metal (Apple M3) — Unified Memory',760,30);
+
+  // Big unified box
+  roundRect(c,540,45,440,140,8,'rgba(255,106,0,0.08)','rgba(255,106,0,0.35)');
+  c.fillStyle='rgba(255,106,0,0.8)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('UNIFIED MEMORY — CPU + GPU share same DRAM',760,65);
+
+  const chunks=[
+    {label:'CPU code',col:'#00d4ff'},{label:'Gaussians',col:'#ff6a00'},
+    {label:'Gradients',col:'#ff6a00'},{label:'GPU kernels',col:'#9b8af5'},
+    {label:'Render buf',col:'#76b900'},{label:'Data load',col:'#00d4ff'},
+  ];
+  chunks.forEach((ch,i)=>{
+    const cx=546+(i%3)*148, cy=78+Math.floor(i/3)*50;
+    roundRect(c,cx,cy,140,40,6,`rgba(${hexRgb(ch.col)},0.15)`,`rgba(${hexRgb(ch.col)},0.4)`);
+    c.fillStyle=ch.col; c.font='600 8px JetBrains Mono'; c.textAlign='center';
+    c.fillText(ch.label,cx+70,cy+24);
+  });
+
+  // zero copy label
+  roundRect(c,570,175,380,28,6,'rgba(87,204,153,0.15)','rgba(87,204,153,0.4)');
+  c.fillStyle='rgba(87,204,153,0.9)'; c.font='700 9px JetBrains Mono'; c.textAlign='center';
+  c.fillText('✓ Zero-copy · Same address space · No PCIe overhead',760,193);
+})();
+
+// ═══════════════════════
+// PERFORMANCE BARS
+// ═══════════════════════
+(function(){
+  const c=ctx('cPerf'); if(!c)return;
+  const W=1000,H=280;
+  c.fillStyle='#090e1a'; c.fillRect(0,0,W,H);
+
+  const metrics=[
+    {label:'Training time (min)',items:[
+      {name:'RTX 4090',val:8,  max:100,col:'#76b900',fmt:'8 min'},
+      {name:'RTX 3090',val:18, max:100,col:'#76b900',fmt:'18 min'},
+      {name:'M3 Max (40-core)',val:35,max:100,col:'#ff6a00',fmt:'35 min'},
+      {name:'M3 Pro (18-core)',val:55,max:100,col:'#ff6a00',fmt:'55 min'},
+      {name:'M3 (10-core)',   val:90,max:100,col:'#a8a9ad',fmt:'~90 min'},
+    ],lower_better:true},
+    {label:'Inference FPS (1080p)',items:[
+      {name:'RTX 4090',val:100,max:100,col:'#76b900',fmt:'200+ FPS'},
+      {name:'RTX 3090',val:75, max:100,col:'#76b900',fmt:'150 FPS'},
+      {name:'M3 Max (40-core)',val:40,max:100,col:'#ff6a00',fmt:'80 FPS'},
+      {name:'M3 Pro (18-core)',val:25,max:100,col:'#ff6a00',fmt:'50 FPS'},
+      {name:'M3 (10-core)',   val:15,max:100,col:'#a8a9ad',fmt:'30 FPS'},
+    ],lower_better:false},
+  ];
+
+  const panelW=(W-40)/2;
+  metrics.forEach((m,mi)=>{
+    const px=10+mi*(panelW+20);
+    roundRect(c,px,10,panelW,H-20,10,'rgba(255,255,255,0.02)','rgba(255,255,255,0.07)');
+    c.fillStyle='rgba(255,255,255,0.5)'; c.font='700 9px JetBrains Mono'; c.textAlign='left';
+    c.fillText(m.label + (m.lower_better?' (lower = better)':' (higher = better)'),px+14,30);
+
+    m.items.forEach((item,ii)=>{
+      const ry=45+ii*44;
+      c.fillStyle='rgba(255,255,255,0.35)'; c.font='600 8px JetBrains Mono'; c.textAlign='left';
+      c.fillText(item.name,px+14,ry+13);
+
+      const barX=px+14, barY=ry+18, barW=panelW-100, barH=16;
+      roundRect(c,barX,barY,barW,barH,4,'rgba(255,255,255,0.05)');
+      const fillW=barW*(item.val/item.max);
+      roundRect(c,barX,barY,fillW,barH,4,`rgba(${hexRgb(item.col)},0.7)`,`rgba(${hexRgb(item.col)},0.9)`,0);
+      c.fillStyle=item.col; c.font='700 8px JetBrains Mono'; c.textAlign='right';
+      c.fillText(item.fmt,px+panelW-14,ry+30);
+    });
+  });
+})();
+</script>
+</body>
+</html>

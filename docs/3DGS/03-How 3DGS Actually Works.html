@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DGS Stage 2 — The Physical How</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap');
+
+:root {
+  --bg: #080a10;
+  --s1: #0e1220;
+  --s2: #141926;
+  --s3: #1c2235;
+  --cyan: #00f0c8;
+  --violet: #9b5de5;
+  --orange: #ff8c42;
+  --yellow: #f7e733;
+  --red: #ff4d6d;
+  --green: #57cc99;
+  --text: #dde4f0;
+  --muted: #7a86a0;
+  --border: rgba(255,255,255,0.06);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Cabinet Grotesk', sans-serif;
+  overflow-x: hidden;
+}
+
+/* subtle grid bg */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,240,200,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,200,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none; z-index:0;
+}
+
+.wrap { position:relative; z-index:1; }
+
+/* ── HEADER ── */
+header {
+  padding: 3rem 2rem 2rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.stage-pill {
+  display: inline-block;
+  background: rgba(0,240,200,0.1);
+  border: 1px solid rgba(0,240,200,0.3);
+  border-radius: 100px;
+  padding: .25rem 1rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .65rem;
+  letter-spacing: .15em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-size: clamp(2rem,5vw,3.5rem);
+  font-weight: 800;
+  line-height: 1.1;
+  background: linear-gradient(140deg, #fff 0%, var(--cyan) 55%, var(--violet) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle { color: var(--muted); margin-top: .6rem; font-size: .95rem; font-weight: 500; }
+
+/* ── LAYOUT ── */
+.container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; }
+.section { margin-bottom: 4rem; }
+
+.sec-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .58rem;
+  letter-spacing: .25em;
+  color: var(--violet);
+  text-transform: uppercase;
+  margin-bottom: .4rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.sec-eyebrow::after { content:''; flex:1; height:1px; background: var(--border); }
+
+h2 { font-size: 1.6rem; font-weight: 800; color: #fff; margin-bottom: .6rem; }
+h3 { font-family: 'IBM Plex Mono', monospace; font-size: .85rem; color: var(--cyan); margin-bottom: .5rem; font-weight: 600; }
+p { color: var(--muted); line-height: 1.8; font-size: .93rem; margin-bottom: .7rem; font-weight: 500; }
+strong { color: var(--text); font-weight: 700; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.75rem;
+  margin: 1.25rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-accent-top {
+  position: absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
+}
+
+.card-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .15em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  opacity: .8;
+}
+
+canvas { display: block; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+.caption {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .6rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: .6rem;
+  letter-spacing: .04em;
+  line-height: 1.6;
+}
+
+/* ── MATH CALLOUT ── */
+.math-box {
+  background: var(--s3);
+  border: 1px solid rgba(155,93,229,0.3);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin: .75rem 0;
+}
+.math-box .eq {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .9rem;
+  color: var(--yellow);
+  letter-spacing: .05em;
+  margin-bottom: .3rem;
+}
+.math-box .meaning { font-size: .8rem; color: var(--muted); line-height: 1.6; }
+.math-box .meaning span { color: var(--cyan); font-weight: 700; }
+
+/* ── STEP CALLOUT ── */
+.step-list { display: flex; flex-direction: column; gap: .6rem; margin: .75rem 0; }
+.step {
+  display: flex; gap: .9rem; align-items: flex-start;
+  background: var(--s2);
+  border-radius: 10px;
+  padding: .75rem 1rem;
+}
+.step-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--cyan);
+  border-radius: 50%;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.step-body { font-size: .88rem; color: var(--muted); line-height: 1.6; }
+.step-body strong { color: var(--text); }
+
+/* ── INTERACTIVE ── */
+.interactive-note {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .6rem;
+  color: rgba(87,204,153,.7);
+  letter-spacing: .06em;
+  margin-bottom: .75rem;
+}
+
+.slider-row {
+  display: flex; align-items: center; gap: .75rem; margin-bottom: .45rem;
+}
+.slider-row label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .62rem;
+  color: var(--muted);
+  min-width: 90px;
+}
+input[type=range] { flex:1; accent-color: var(--cyan); cursor: pointer; height: 4px; }
+.sval {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .65rem;
+  color: var(--yellow);
+  min-width: 44px;
+  text-align: right;
+}
+
+/* ── HIGHLIGHT CHIPS ── */
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; }
+.chip {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .65rem;
+  padding: .2rem .6rem;
+  border-radius: 6px;
+  border: 1px solid;
+}
+.chip-cyan  { background: rgba(0,240,200,.1);  border-color: rgba(0,240,200,.3);  color: var(--cyan); }
+.chip-violet{ background: rgba(155,93,229,.1); border-color: rgba(155,93,229,.3); color: var(--violet);}
+.chip-orange{ background: rgba(255,140,66,.1); border-color: rgba(255,140,66,.3); color: var(--orange);}
+.chip-yellow{ background: rgba(247,231,51,.1); border-color: rgba(247,231,51,.3); color: var(--yellow);}
+
+@media(max-width:640px){.two-col{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="stage-pill">Stage 2 · The Physical How</div>
+  <h1>How 3DGS Actually Works</h1>
+  <p class="subtitle">Projection · Covariance · Alpha Compositing · Optimization</p>
+</header>
+
+<div class="container">
+
+<!-- ════════════════════════════════════════
+     SECTION 1 — THE BIG LOOP
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Overview</div>
+  <h2>The Four-Step Engine</h2>
+  <p>Everything in 3DGS is one repeating loop. Four steps, running thousands of times until the scene looks right.</p>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">The Core Loop — Repeated ~30,000 times during training</div>
+    <canvas id="cLoop" width="920" height="130" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">Each iteration picks a training photo, renders it from Gaussians, compares to ground truth, then adjusts every parameter via gradients</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 2 — PROJECTION: 3D → 2D
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Step 1 · Projection</div>
+  <h2>Taking a 3D Ellipsoid into 2D</h2>
+  <p>The first mechanical step: for each Gaussian, <strong>project its 3D ellipsoid shape onto the image plane</strong>. The 3D covariance becomes a 2D covariance — a smaller, simpler ellipse on screen.</p>
+  <p>Think of it like shining a flashlight at an egg. The shadow on the wall is always an ellipse, just flatter. The math that does this is called the <strong>EWA splatting approximation</strong> — it's fast and keeps the projection differentiable.</p>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">3D Ellipsoid → Camera Space → 2D Screen Ellipse</div>
+    <canvas id="cProj" width="920" height="260" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">The projection changes shape depending on the viewing angle — a sphere stays round, but a disk tilted away from the camera gets squashed into a thin sliver</p>
+  </div>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Why Viewing Angle Changes the 2D Shape</div>
+    <canvas id="cAngle" width="920" height="200" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">The same flat-disk Gaussian looks different at 0°, 45°, and 90° — this view-dependence is what makes the representation so powerful</p>
+  </div>
+
+  <div class="math-box">
+    <div class="eq">Σ' = J · W · Σ · Wᵀ · Jᵀ</div>
+    <div class="meaning">
+      <span>Σ'</span> = 2D projected covariance (the screen ellipse shape) &nbsp;·&nbsp;
+      <span>Σ</span> = 3D covariance (the blob shape) &nbsp;·&nbsp;
+      <span>W</span> = camera rotation &nbsp;·&nbsp;
+      <span>J</span> = Jacobian of perspective projection (handles the "squish")<br>
+      <br>Intuition: We're asking "if I look at this 3D ellipsoid through this camera, what ellipse do I see?"
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 3 — COVARIANCE DECOMPOSITION
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Step 1b · Under the Hood</div>
+  <h2>How Shape Is Stored: R · S · Sᵀ · Rᵀ</h2>
+  <p>Here's a subtle but important point. We can't just store the covariance matrix Σ directly and optimize it — we'd risk getting a physically impossible (non-positive-definite) matrix. Instead, 3DGS decomposes it into two things you <em>can</em> safely optimize:</p>
+
+  <div class="chips">
+    <span class="chip chip-cyan">Scale S — 3 numbers (sx, sy, sz)</span>
+    <span class="chip chip-violet">Rotation R — 4 numbers (quaternion)</span>
+  </div>
+
+  <p>Then reconstruct: <strong>Σ = R · S · Sᵀ · Rᵀ</strong>. This is always valid. You can push any numbers through scale and rotation and the result is always a legal covariance. This is why training is stable.</p>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Scale × Rotation = Final Ellipsoid Shape</div>
+    <canvas id="cDecomp" width="920" height="220" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">Scale stretches the sphere into an ellipsoid. Rotation tilts it. The final shape is the composition of both — always a valid ellipsoid.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Interactive — Build Your Own Covariance</div>
+    <p class="interactive-note">▶ DRAG SLIDERS — watch scale and rotation compose into the final shape</p>
+    <div class="two-col">
+      <div>
+        <div class="slider-row"><label>Scale X</label><input type="range" id="dSx" min="5" max="80" value="55"><span class="sval" id="vSx">55</span></div>
+        <div class="slider-row"><label>Scale Y</label><input type="range" id="dSy" min="5" max="80" value="22"><span class="sval" id="vSy">22</span></div>
+        <div class="slider-row"><label>Scale Z</label><input type="range" id="dSz" min="5" max="80" value="35"><span class="sval" id="vSz">35</span></div>
+        <div class="slider-row"><label>Rotation</label><input type="range" id="dRot" min="0" max="628" value="0"><span class="sval" id="vRot">0°</span></div>
+        <div style="margin-top:1rem;">
+          <div class="math-box" style="margin:0;">
+            <div class="eq" id="sigmaDisplay">Σ: sx=55 sy=22 r=0°</div>
+            <div class="meaning">The 6 shape parameters that get optimized during training</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <canvas id="cDecompInteractive" width="300" height="300"></canvas>
+        <p class="caption">3D covariance visualized as 2D cross-section<br>(looking down Z axis)</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 4 — DEPTH SORTING
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Step 2 · Sorting</div>
+  <h2>Depth Sorting — Getting the Order Right</h2>
+  <p>Before blending, we must draw <strong>back-to-front</strong>. The farthest Gaussian gets painted first, then closer ones on top. This is called <strong>painter's algorithm</strong>. Get it backwards and the colors blend wrong — you'd see background colors bleeding through foreground objects.</p>
+  <p>3DGS sorts all Gaussians by their distance from the camera every frame. With millions of Gaussians, this is a serious GPU radix sort — one of the most expensive steps.</p>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Correct vs Incorrect Depth Order</div>
+    <canvas id="cDepth" width="920" height="220" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">Back-to-front (correct) vs front-to-back (wrong) — the compositing math only works in the right order</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 5 — ALPHA COMPOSITING
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Step 3 · Blending</div>
+  <h2>Alpha Compositing — The Blending Formula</h2>
+  <p>Once sorted, each 2D Gaussian splat contributes color to each pixel it covers. The contribution depends on <strong>two things</strong>: how much the Gaussian's 2D Gaussian function covers that pixel (its weight at that position), and its opacity α.</p>
+
+  <div class="math-box">
+    <div class="eq">C = Σᵢ cᵢ · αᵢ · Tᵢ</div>
+    <div class="meaning">
+      <span>C</span> = final pixel color &nbsp;·&nbsp;
+      <span>cᵢ</span> = color of Gaussian i &nbsp;·&nbsp;
+      <span>αᵢ</span> = opacity × 2D Gaussian weight at this pixel &nbsp;·&nbsp;
+      <span>Tᵢ</span> = transmittance = how much light is left (1 − Σ previous α's)
+    </div>
+  </div>
+
+  <p><strong>Transmittance</strong> is the key insight: each Gaussian only gets to contribute as much as the light that wasn't already blocked by everything in front of it. The first Gaussian gets full light. The second gets whatever's left. And so on — it trails off naturally.</p>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">How Transmittance Decays Through Layers</div>
+    <canvas id="cTransmit" width="920" height="200" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">T starts at 1.0 and decays as each layer absorbs light — deeper Gaussians have diminishing influence on the final pixel color</p>
+  </div>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Interactive — Watch the Compositing Formula in Action</div>
+    <p class="interactive-note">▶ DRAG SLIDERS — see how each layer's opacity and transmittance combine</p>
+    <canvas id="cComposite" width="920" height="280" style="width:100%;max-width:920px;"></canvas>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.75rem;">
+      <div class="slider-row" style="flex-direction:column;align-items:stretch;gap:.3rem;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--red);">Layer 1 (α)</label>
+        <input type="range" id="a1" min="1" max="99" value="60" style="accent-color:#ff4d6d;">
+        <span class="sval" id="va1" style="text-align:left;">0.60</span>
+      </div>
+      <div class="slider-row" style="flex-direction:column;align-items:stretch;gap:.3rem;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--orange);">Layer 2 (α)</label>
+        <input type="range" id="a2" min="1" max="99" value="50" style="accent-color:#ff8c42;">
+        <span class="sval" id="va2" style="text-align:left;">0.50</span>
+      </div>
+      <div class="slider-row" style="flex-direction:column;align-items:stretch;gap:.3rem;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--yellow);">Layer 3 (α)</label>
+        <input type="range" id="a3" min="1" max="99" value="70" style="accent-color:#f7e733;">
+        <span class="sval" id="va3" style="text-align:left;">0.70</span>
+      </div>
+      <div class="slider-row" style="flex-direction:column;align-items:stretch;gap:.3rem;">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--cyan);">Layer 4 (α)</label>
+        <input type="range" id="a4" min="1" max="99" value="80" style="accent-color:#00f0c8;">
+        <span class="sval" id="va4" style="text-align:left;">0.80</span>
+      </div>
+    </div>
+    <p class="caption" style="margin-top:.5rem;">Final pixel = weighted sum of all 4 layer colors · Notice how earlier layers dominate</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 6 — LOSS + BACKPROP
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Step 4 · Learning</div>
+  <h2>The Loss Function — How It Knows It's Wrong</h2>
+  <p>After rendering, 3DGS compares the result to the ground truth training photo. The difference is the <strong>loss</strong>. Gradients from this loss flow backwards through every operation — all the way back to each Gaussian's 59 parameters.</p>
+
+  <div class="math-box">
+    <div class="eq">L = (1-λ) · L₁ + λ · L_SSIM</div>
+    <div class="meaning">
+      <span>L₁</span> = mean absolute pixel error (pushes colors toward truth) &nbsp;·&nbsp;
+      <span>L_SSIM</span> = structural similarity loss (preserves edges and texture) &nbsp;·&nbsp;
+      <span>λ</span> = 0.2 (SSIM weight) — default setting<br>
+      <br>Using both losses: L₁ alone can get the right average color but miss sharp detail. SSIM catches structure.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Rendered vs Ground Truth — What the Loss Sees</div>
+    <canvas id="cLoss" width="920" height="220" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">The error map (right) drives gradients — bright = big error, dark = well-converged. This is what nudges each Gaussian toward its final position.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">What Gradients Flow Back Through</div>
+    <canvas id="cGrad" width="920" height="160" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">Every parameter of every Gaussian receives a gradient signal — telling it which direction to move to reduce error</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 7 — DENSIFICATION
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">The Special Sauce</div>
+  <h2>Adaptive Density Control — Growing the Scene</h2>
+  <p>Standard gradient descent only moves existing Gaussians. But 3DGS also <strong>adds and removes Gaussians</strong> every ~100 iterations based on the gradient signal. This is what grows a sparse point cloud into a dense photorealistic scene.</p>
+
+  <div class="step-list">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body"><strong>Detect under-reconstruction:</strong> Find Gaussians with large position gradients — the optimizer is straining to move them but can't get there with one blob.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body"><strong>Small Gaussian? → Clone it.</strong> Duplicate the Gaussian and offset the copy toward the gradient direction. You now have two small blobs where one was insufficient.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body"><strong>Large Gaussian? → Split it.</strong> Replace a big Gaussian with two smaller ones. Sample their positions from the original Gaussian's distribution, divide scale by 1.6.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body"><strong>Prune floaters:</strong> Every 3000 steps, reset opacity of all Gaussians — forcing each one to re-earn its existence. Near-zero opacity ones get deleted.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">Densification in Action — Gaussian Count Over Training</div>
+    <canvas id="cDensify" width="920" height="220" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">Scene grows from ~200K initial points to 3–6M Gaussians · Pruning resets create the periodic dips · Final scene density emerges organically</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SECTION 8 — FULL PIPELINE RECAP
+════════════════════════════════════════ -->
+<div class="section">
+  <div class="sec-eyebrow">Synthesis</div>
+  <h2>The Full Pipeline — All at Once</h2>
+  <p>Here's everything from Stage 1 + Stage 2 in one diagram. This is the complete picture of how 3DGS works end-to-end.</p>
+
+  <div class="card">
+    <div class="card-accent-top"></div>
+    <div class="card-label">3DGS End-to-End Pipeline</div>
+    <canvas id="cFull" width="920" height="280" style="width:100%;max-width:920px;"></canvas>
+    <p class="caption">Training (left loop) runs ~30K iterations · Inference (right) is real-time rasterization — no network, no backprop, just geometry</p>
+  </div>
+</div>
+
+</div><!-- /container -->
+</div><!-- /wrap -->
+
+<script>
+// ═══════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════
+const $ = id => document.getElementById(id);
+const ctx = id => { const c=$(id); return c?c.getContext('2d'):null; };
+
+function hsl(h,s,l,a=1){ return `hsla(${h},${s}%,${l}%,${a})`; }
+
+function gaussian2D(x,y,cx,cy,rx,ry,rot){
+  const cos=Math.cos(-rot), sin=Math.sin(-rot);
+  const dx=x-cx, dy=y-cy;
+  const rx2=cos*dx-sin*dy, ry2=sin*dx+cos*dy;
+  return Math.exp(-0.5*((rx2*rx2)/(rx*rx)+(ry2*ry2)/(ry*ry)));
+}
+
+function drawBlob(c, x, y, rx, ry, rot, r, g, b, alpha, rings=true){
+  c.save();
+  c.translate(x,y); c.rotate(rot);
+  const maxR = Math.max(rx,ry);
+  const g2 = c.createRadialGradient(0,0,0,0,0,maxR);
+  g2.addColorStop(0,   `rgba(${r},${g},${b},${alpha})`);
+  g2.addColorStop(0.45,`rgba(${r},${g},${b},${alpha*0.55})`);
+  g2.addColorStop(1,   `rgba(${r},${g},${b},0)`);
+  c.scale(rx/maxR, ry/maxR);
+  c.beginPath(); c.arc(0,0,maxR,0,Math.PI*2);
+  c.fillStyle=g2; c.fill();
+  c.restore();
+}
+
+function roundRect(c, x, y, w, h, r, fill, stroke){
+  c.beginPath();
+  c.roundRect(x,y,w,h,r);
+  if(fill){ c.fillStyle=fill; c.fill(); }
+  if(stroke){ c.strokeStyle=stroke; c.lineWidth=1; c.stroke(); }
+}
+
+// ═══════════════════════════════════
+// CORE LOOP DIAGRAM
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cLoop'); if(!c)return;
+  const W=920,H=130;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const steps=[
+    {label:'TRAINING\nPHOTOS',  icon:'📷', col:'#00f0c8'},
+    {label:'GAUSSIANS\n(scene)', icon:'◉',  col:'#9b5de5'},
+    {label:'RASTERIZE\n(render)',icon:'🎥', col:'#ff8c42'},
+    {label:'COMPARE\n(loss)',    icon:'⚡', col:'#ff4d6d'},
+    {label:'BACKPROP\n(grads)',  icon:'∇',  col:'#f7e733'},
+    {label:'UPDATE\nPARAMS',    icon:'⟳',  col:'#57cc99'},
+  ];
+
+  const boxW=118, gap=30, startX=20, y=20, h=80;
+  steps.forEach((s,i)=>{
+    const x=startX+i*(boxW+gap);
+    roundRect(c,x,y,boxW,h,10,`rgba(${hexToRgb(s.col)},0.1)`,`rgba(${hexToRgb(s.col)},0.4)`);
+    c.fillStyle=s.col; c.font='bold 18px sans-serif'; c.textAlign='center';
+    c.fillText(s.icon, x+boxW/2, y+28);
+    c.font='600 8px IBM Plex Mono, monospace';
+    s.label.split('\n').forEach((ln,li)=>c.fillText(ln, x+boxW/2, y+46+li*12));
+
+    if(i<steps.length-1){
+      const ax=x+boxW+5, ay=y+h/2;
+      c.beginPath(); c.moveTo(ax,ay); c.lineTo(ax+gap-8,ay);
+      c.moveTo(ax+gap-13,ay-5); c.lineTo(ax+gap-8,ay); c.lineTo(ax+gap-13,ay+5);
+      c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1.5; c.stroke();
+    }
+  });
+
+  // feedback arc
+  const lastX=startX+(steps.length-1)*(boxW+gap)+boxW;
+  c.beginPath();
+  c.moveTo(lastX+5, y+h/2);
+  c.bezierCurveTo(lastX+25, y+h/2, lastX+25, y+h+20, W/2, y+h+20);
+  c.bezierCurveTo(startX-20, y+h+20, startX-20, y+h/2, startX-5, y+h/2);
+  c.strokeStyle='rgba(0,240,200,0.3)'; c.lineWidth=1.5; c.setLineDash([4,5]); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='rgba(0,240,200,0.5)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('×30,000 iterations', W/2, H-5);
+})();
+
+function hexToRgb(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+// ═══════════════════════════════════
+// PROJECTION DIAGRAM
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cProj'); if(!c)return;
+  const W=920,H=260;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  // 3D space panel
+  roundRect(c,10,15,250,H-30,12,'rgba(155,93,229,0.05)','rgba(155,93,229,0.2)');
+  c.fillStyle='rgba(155,93,229,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('3D WORLD SPACE',135,32);
+
+  // Draw 3D blobs
+  const blobs3d=[
+    {x:80, y:90, rx:38,ry:18,rot:.4, r:0,g:240,b:200},
+    {x:175,y:140,rx:14,ry:40,rot:.1, r:155,g:93,b:229},
+    {x:220,y:80, rx:28,ry:10,rot:-.3,r:255,g:140,b:66},
+  ];
+  blobs3d.forEach(b=>drawBlob(c,b.x,b.y,b.rx,b.ry,b.rot,b.r,b.g,b.b,0.65));
+
+  // camera
+  const camX=350, camY=H/2;
+  roundRect(c,305,15,90,H-30,12,'rgba(255,255,255,0.02)','rgba(255,255,255,0.08)');
+  c.fillStyle='rgba(0,240,200,0.15)'; c.fillRect(camX-18,camY-14,36,28);
+  c.strokeStyle='rgba(0,240,200,0.7)'; c.lineWidth=2;
+  c.strokeRect(camX-18,camY-14,36,28);
+  c.beginPath(); c.arc(camX,camY,8,0,Math.PI*2);
+  c.fillStyle='rgba(0,240,200,0.4)'; c.fill(); c.stroke();
+  c.fillStyle='rgba(0,240,200,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('CAMERA',camX,32);
+
+  // projection rays
+  blobs3d.forEach(b=>{
+    c.beginPath(); c.moveTo(b.x+40,b.y); c.lineTo(camX-18,camY);
+    c.strokeStyle='rgba(255,255,255,0.05)'; c.lineWidth=1; c.stroke();
+  });
+
+  // image plane
+  roundRect(c,460,15,200,H-30,12,'rgba(0,240,200,0.04)','rgba(0,240,200,0.2)');
+  c.fillStyle='rgba(0,240,200,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('2D IMAGE PLANE',560,32);
+
+  // 2D projected splats
+  const splats=[
+    {x:510,y:90, rx:44,ry:14,rot:.4, r:0,g:240,b:200},
+    {x:580,y:140,rx:12,ry:42,rot:.1, r:155,g:93,b:229},
+    {x:620,y:80, rx:30,ry:8, rot:-.3,r:255,g:140,b:66},
+  ];
+  splats.forEach(s=>drawBlob(c,s.x,s.y,s.rx,s.ry,s.rot,s.r,s.g,s.b,0.7));
+
+  // projection rays from camera to splats
+  splats.forEach(s=>{
+    c.beginPath(); c.moveTo(camX+18,camY); c.lineTo(s.x,s.y);
+    c.strokeStyle='rgba(255,255,255,0.04)'; c.lineWidth=1; c.stroke();
+  });
+
+  // Final composited
+  roundRect(c,690,15,220,H-30,12,'rgba(87,204,153,0.04)','rgba(87,204,153,0.2)');
+  c.fillStyle='rgba(87,204,153,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('COMPOSITED OUTPUT',800,32);
+
+  const finalBlobs=[
+    {x:745,y:90, rx:40,ry:13,rot:.4, r:0,g:240,b:200},
+    {x:800,y:140,rx:11,ry:38,rot:.1, r:155,g:93,b:229},
+    {x:840,y:80, rx:26,ry:8, rot:-.3,r:255,g:140,b:66},
+  ];
+  finalBlobs.forEach(b=>drawBlob(c,b.x,b.y,b.rx,b.ry,b.rot,b.r,b.g,b.b,0.75));
+
+  // Σ→Σ' annotation
+  c.fillStyle='rgba(247,231,51,0.8)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('Σ (3D covariance)',135,H-18);
+  c.fillText("Σ' = J·W·Σ·Wᵀ·Jᵀ",560,H-18);
+})();
+
+// ═══════════════════════════════════
+// VIEWING ANGLE EFFECT
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cAngle'); if(!c)return;
+  const W=920,H=200;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const views=[
+    {angle:0,   label:'Face-on (0°)',  sub:'Full disk visible', rx:60,ry:22},
+    {angle:.6,  label:'Tilted (35°)',  sub:'Moderately squashed',rx:60,ry:16},
+    {angle:1.1, label:'Steep (63°)',   sub:'Very thin ellipse',rx:60,ry:7},
+    {angle:Math.PI/2-0.05,label:'Edge-on (89°)',sub:'Near-line sliver',rx:60,ry:2},
+  ];
+
+  const spacing=W/views.length;
+  views.forEach((v,i)=>{
+    const cx=spacing*(i+.5), cy=95;
+    roundRect(c,spacing*i+8,10,spacing-16,H-20,10,'rgba(255,255,255,0.02)','rgba(255,255,255,0.06)');
+
+    // 3D egg hint (gray)
+    c.save(); c.translate(cx,cy-5);
+    c.scale(1,0.5); c.globalAlpha=0.15;
+    c.beginPath(); c.arc(0,0,40,0,Math.PI*2);
+    c.fillStyle='rgba(155,93,229,0.5)'; c.fill();
+    c.globalAlpha=1; c.restore();
+
+    // Projected 2D ellipse
+    drawBlob(c,cx,cy+5,v.rx,v.ry,0,0,240,200,0.7);
+    c.save(); c.translate(cx,cy+5); c.rotate(0);
+    c.scale(v.rx/Math.max(v.rx,v.ry), v.ry/Math.max(v.rx,v.ry));
+    c.beginPath(); c.arc(0,0,Math.max(v.rx,v.ry),0,Math.PI*2);
+    c.strokeStyle='rgba(0,240,200,0.5)'; c.lineWidth=1; c.stroke();
+    c.restore();
+
+    // Camera angle indicator
+    c.save(); c.translate(cx, cy-35);
+    c.beginPath(); c.moveTo(0,0);
+    c.lineTo(Math.cos(-Math.PI/2+v.angle)*25, Math.sin(-Math.PI/2+v.angle)*25);
+    c.strokeStyle='rgba(255,140,66,0.7)'; c.lineWidth=2; c.stroke();
+    c.beginPath(); c.arc(0,0,5,0,Math.PI*2);
+    c.fillStyle='rgba(255,140,66,0.8)'; c.fill();
+    c.restore();
+
+    c.fillStyle='rgba(0,240,200,0.8)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(v.label,cx,H-22);
+    c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono';
+    c.fillText(v.sub,cx,H-11);
+  });
+
+  // viewing direction legend
+  c.fillStyle='rgba(255,140,66,0.5)'; c.font='600 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('● = camera position',14,H-2);
+})();
+
+// ═══════════════════════════════════
+// COVARIANCE DECOMPOSITION
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cDecomp'); if(!c)return;
+  const W=920,H=220;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  // Step 1: unit sphere
+  roundRect(c,15,20,190,H-40,10,'rgba(255,255,255,0.02)','rgba(255,255,255,0.06)');
+  c.fillStyle='rgba(0,240,200,0.15)';
+  c.beginPath(); c.arc(110,110,55,0,Math.PI*2); c.fill();
+  c.strokeStyle='rgba(0,240,200,0.5)'; c.lineWidth=1.5;
+  c.beginPath(); c.arc(110,110,55,0,Math.PI*2); c.stroke();
+  // axes
+  c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1; c.setLineDash([3,4]);
+  c.beginPath(); c.moveTo(50,110); c.lineTo(170,110); c.stroke();
+  c.beginPath(); c.moveTo(110,45); c.lineTo(110,175); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle='rgba(0,240,200,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('UNIT SPHERE',110,H-25);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono';
+  c.fillText('S = identity',110,H-14);
+
+  // Arrow 1
+  const a1x=215; drawArrow(c,a1x,110,a1x+65,110,'rgba(0,240,200,0.5)','Scale S');
+
+  // Step 2: scaled ellipsoid
+  roundRect(c,285,20,190,H-40,10,'rgba(0,240,200,0.03)','rgba(0,240,200,0.15)');
+  c.save(); c.translate(380,110);
+  drawBlob(c,0,0,72,28,0,0,240,200,0.6);
+  c.strokeStyle='rgba(0,240,200,0.5)'; c.lineWidth=1;
+  c.scale(1,28/72); c.beginPath(); c.arc(0,0,72,0,Math.PI*2); c.stroke();
+  c.restore();
+  c.strokeStyle='rgba(0,240,200,0.4)'; c.lineWidth=1; c.setLineDash([3,4]);
+  c.beginPath(); c.moveTo(308,110); c.lineTo(452,110); c.stroke();
+  c.beginPath(); c.moveTo(380,40); c.lineTo(380,180); c.stroke();
+  c.setLineDash([]);
+  // scale arrows
+  c.strokeStyle='rgba(0,240,200,0.7)'; c.lineWidth=2;
+  c.beginPath(); c.moveTo(380,110); c.lineTo(452,110);
+  c.moveTo(447,105); c.lineTo(452,110); c.lineTo(447,115); c.stroke();
+  c.beginPath(); c.moveTo(380,110); c.lineTo(380,82);
+  c.moveTo(375,87); c.lineTo(380,82); c.lineTo(385,87); c.stroke();
+  c.fillStyle='rgba(0,240,200,0.6)'; c.font='600 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('sx',455,113); c.fillText('sy',384,79);
+  c.fillStyle='rgba(0,240,200,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('AFTER SCALE',380,H-25);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono';
+  c.fillText('S = diag(sx,sy,sz)',380,H-14);
+
+  // Arrow 2
+  const a2x=485; drawArrow(c,a2x,110,a2x+65,110,'rgba(155,93,229,0.5)','Rotate R');
+
+  // Step 3: rotated
+  roundRect(c,555,20,190,H-40,10,'rgba(155,93,229,0.03)','rgba(155,93,229,0.15)');
+  c.save(); c.translate(650,110);
+  drawBlob(c,0,0,72,28,.7,155,93,229,0.65);
+  c.strokeStyle='rgba(155,93,229,0.6)'; c.lineWidth=1.5;
+  c.rotate(.7); c.scale(1,28/72); c.beginPath(); c.arc(0,0,72,0,Math.PI*2); c.stroke();
+  c.restore();
+  // rotation arc
+  c.save(); c.translate(650,110);
+  c.beginPath(); c.arc(0,0,30,0,.7);
+  c.strokeStyle='rgba(247,231,51,0.6)'; c.lineWidth=2; c.stroke();
+  c.restore();
+  c.fillStyle='rgba(247,231,51,0.7)'; c.font='600 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('θ',682,100);
+  c.fillStyle='rgba(155,93,229,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('AFTER ROTATION',650,H-25);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono';
+  c.fillText('Σ = R·S·Sᵀ·Rᵀ',650,H-14);
+
+  // Arrow 3
+  const a3x=755; drawArrow(c,a3x,110,a3x+55,110,'rgba(87,204,153,0.5)','= Σ');
+
+  // Step 4: final
+  roundRect(c,815,20,95,H-40,10,'rgba(87,204,153,0.04)','rgba(87,204,153,0.2)');
+  drawBlob(c,862,110,38,15,.7,87,204,153,0.75);
+  c.fillStyle='rgba(87,204,153,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('FINAL Σ',862,H-25);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono';
+  c.fillText('always valid',862,H-14);
+})();
+
+function drawArrow(c,x1,y1,x2,y2,color,label){
+  c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2-8,y2);
+  c.moveTo(x2-13,y2-5); c.lineTo(x2-8,y2); c.lineTo(x2-13,y2+5);
+  c.strokeStyle=color; c.lineWidth=2; c.stroke();
+  c.fillStyle=color; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText(label,(x1+x2)/2,y1-7);
+}
+
+// ═══════════════════════════════════
+// INTERACTIVE DECOMPOSITION
+// ═══════════════════════════════════
+function drawDecompInteractive(){
+  const c=ctx('cDecompInteractive'); if(!c)return;
+  const W=300,H=300;
+  c.clearRect(0,0,W,H); c.fillStyle='#141926'; c.fillRect(0,0,W,H);
+
+  // grid
+  for(let i=0;i<=W;i+=20){ c.beginPath(); c.moveTo(i,0); c.lineTo(i,H); c.strokeStyle='rgba(255,255,255,0.03)'; c.lineWidth=1; c.stroke(); }
+  for(let i=0;i<=H;i+=20){ c.beginPath(); c.moveTo(0,i); c.lineTo(W,i); c.strokeStyle='rgba(255,255,255,0.03)'; c.lineWidth=1; c.stroke(); }
+
+  const sx=+$('dSx').value, sy=+$('dSy').value, sz=+$('dSz').value;
+  const rot=+$('dRot').value/100;
+  const cx=W/2, cy=H/2;
+
+  // Draw Z cross-section circle (sz)
+  c.save(); c.translate(cx,cy);
+  c.beginPath(); c.arc(0,0,sz,0,Math.PI*2);
+  c.strokeStyle='rgba(255,140,66,0.4)'; c.lineWidth=1; c.setLineDash([3,5]); c.stroke();
+  c.setLineDash([]); c.restore();
+
+  // Main X-Y ellipse with rotation
+  for(let layer=4;layer>=0;layer--){
+    const lsx=sx*(1-layer*.06), lsy=sy*(1-layer*.06);
+    const a=[0.75,0.35,0.2,0.12,0.07][layer];
+    drawBlob(c,cx,cy,lsx,lsy,rot,0,240,200,a);
+  }
+
+  // Axes
+  c.save(); c.translate(cx,cy); c.rotate(rot);
+  c.strokeStyle='rgba(0,240,200,0.5)'; c.lineWidth=1.5; c.setLineDash([4,4]);
+  c.beginPath(); c.moveTo(-sx-15,0); c.lineTo(sx+15,0); c.stroke();
+  c.beginPath(); c.moveTo(0,-sy-15); c.lineTo(0,sy+15); c.stroke();
+  c.setLineDash([]);
+  // sx arrow
+  c.strokeStyle='rgba(0,240,200,0.8)'; c.lineWidth=2;
+  c.beginPath(); c.moveTo(0,0); c.lineTo(sx,0);
+  c.moveTo(sx-7,-4); c.lineTo(sx,0); c.lineTo(sx-7,4); c.stroke();
+  c.fillStyle='rgba(0,240,200,0.9)'; c.font='700 9px IBM Plex Mono'; c.textAlign='left';
+  c.fillText(`sx=${sx}`,sx+5,4);
+  // sy arrow
+  c.strokeStyle='rgba(155,93,229,0.8)';
+  c.beginPath(); c.moveTo(0,0); c.lineTo(0,-sy);
+  c.moveTo(-4,-sy+7); c.lineTo(0,-sy); c.lineTo(4,-sy+7); c.stroke();
+  c.fillStyle='rgba(155,93,229,0.9)'; c.textAlign='center';
+  c.fillText(`sy=${sy}`,0,-sy-8);
+  c.restore();
+
+  // rotation arc
+  c.save(); c.translate(cx,cy);
+  if(rot>0.05){
+    c.beginPath(); c.arc(0,0,28,0,rot);
+    c.strokeStyle='rgba(247,231,51,0.6)'; c.lineWidth=2; c.stroke();
+  }
+  c.restore();
+
+  // center dot
+  c.beginPath(); c.arc(cx,cy,4,0,Math.PI*2);
+  c.fillStyle='#fff'; c.fill();
+
+  // sz ring label
+  c.fillStyle='rgba(255,140,66,0.6)'; c.font='600 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText(`sz=${sz} (Z depth, dashed)`,14,H-8);
+}
+
+['dSx','dSy','dSz','dRot'].forEach(id=>{
+  const el=$(id); if(!el)return;
+  el.addEventListener('input',()=>{
+    const vals={dSx:$('vSx'),dSy:$('vSy'),dSz:$('vSz'),vRot:$('vRot')};
+    if(id==='dRot'){$('vRot').textContent=Math.round(+el.value/100*180/Math.PI)+'°';}
+    else{$(id.replace('d','v')).textContent=el.value;}
+    $('sigmaDisplay').textContent=`Σ: sx=${$('dSx').value} sy=${$('dSy').value} sz=${$('dSz').value} r=${Math.round(+$('dRot').value/100*180/Math.PI)}°`;
+    drawDecompInteractive();
+  });
+});
+drawDecompInteractive();
+
+// ═══════════════════════════════════
+// DEPTH SORT
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cDepth'); if(!c)return;
+  const W=920,H=220;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const layers=[
+    {z:1,col:[255,77,109],  r:255,g:77, b:109,label:'Layer 1 (front)'},
+    {z:2,col:[255,140,66],  r:255,g:140,b:66, label:'Layer 2'},
+    {z:3,col:[247,231,51],  r:247,g:231,b:51, label:'Layer 3'},
+    {z:4,col:[0,240,200],   r:0,  g:240,b:200,label:'Layer 4 (back)'},
+  ];
+
+  // CORRECT — back to front
+  roundRect(c,15,15,415,H-30,12,'rgba(87,204,153,0.04)','rgba(87,204,153,0.2)');
+  c.fillStyle='rgba(87,204,153,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('✓ CORRECT — Back to Front',222,32);
+
+  // draw back to front
+  [...layers].reverse().forEach((l,i)=>{
+    const off=i*18;
+    drawBlob(c,190+off,115+off*0.3,80,45,0,l.r,l.g,l.b,0.7);
+  });
+  // label
+  c.fillStyle='rgba(87,204,153,0.5)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('Colors blend naturally — foreground dominates',222,H-12);
+
+  // WRONG — front to back
+  roundRect(c,490,15,415,H-30,12,'rgba(255,77,109,0.04)','rgba(255,77,109,0.2)');
+  c.fillStyle='rgba(255,77,109,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('✗ WRONG — Front to Back',697,32);
+
+  // draw front to back (inverted)
+  layers.forEach((l,i)=>{
+    const off=i*18;
+    drawBlob(c,665+off,115+off*0.3,80,45,0,l.r,l.g,l.b,0.7);
+  });
+  c.fillStyle='rgba(255,77,109,0.5)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('Background bleeds through — broken compositing',697,H-12);
+
+  // depth axis indicator
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('←  CAMERA',120,H-2);
+  c.fillText('SCENE DEPTH  →',320,H-2);
+})();
+
+// ═══════════════════════════════════
+// TRANSMITTANCE
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cTransmit'); if(!c)return;
+  const W=920,H=200;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const alphas=[0.6,0.5,0.7,0.8,0.4,0.9];
+  const colors=[[255,77,109],[255,140,66],[247,231,51],[0,240,200],[155,93,229],[87,204,153]];
+  const labels=['Gauss 1','Gauss 2','Gauss 3','Gauss 4','Gauss 5','Gauss 6'];
+
+  let T=1.0;
+  const transmittances=[T];
+  alphas.forEach(a=>{T*=(1-a);transmittances.push(T);});
+
+  const spacing=W/(alphas.length+1);
+  const barH=80;
+
+  alphas.forEach((a,i)=>{
+    const x=spacing*(i+0.5);
+    const col=colors[i];
+
+    // Gaussian blob
+    drawBlob(c,x,70,38,20,0,...col,a*0.8);
+
+    // T bar (transmittance before this layer)
+    const T_in=transmittances[i];
+    const bx=x-25, bw=50;
+    roundRect(c,bx,150,bw,Math.max(2,T_in*40),4,`rgba(${col.join(',')},0.3)`,`rgba(${col.join(',')},0.5)`);
+
+    // Transmittance value
+    c.fillStyle=`rgba(${col.join(',')},0.9)`;
+    c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(`T=${T_in.toFixed(2)}`,x,145);
+    c.fillText(`α=${a}`,x,120);
+    c.fillText(labels[i],x,H-4);
+
+    // Arrow to next
+    if(i<alphas.length-1){
+      const ax=x+38, ay=70;
+      c.beginPath(); c.moveTo(ax,ay); c.lineTo(ax+spacing-76,ay);
+      c.moveTo(ax+spacing-81,ay-4); c.lineTo(ax+spacing-76,ay); c.lineTo(ax+spacing-81,ay+4);
+      c.strokeStyle='rgba(255,255,255,0.15)'; c.lineWidth=1.5; c.stroke();
+    }
+  });
+
+  // T bar axis
+  c.fillStyle='rgba(255,255,255,0.25)'; c.font='600 8px IBM Plex Mono'; c.textAlign='right';
+  c.fillText('Transmittance T →',W-10,165);
+})();
+
+// ═══════════════════════════════════
+// INTERACTIVE COMPOSITING
+// ═══════════════════════════════════
+function drawComposite(){
+  const c=ctx('cComposite'); if(!c)return;
+  const W=920,H=280;
+  c.clearRect(0,0,W,H); c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const alphas=[
+    +$('a1').value/100,
+    +$('a2').value/100,
+    +$('a3').value/100,
+    +$('a4').value/100,
+  ];
+  const colors=[[255,77,109],[255,140,66],[247,231,51],[0,240,200]];
+  const colNames=['Layer 1 (front)','Layer 2','Layer 3','Layer 4 (back)'];
+
+  let T=1.0;
+  const contributions=[];
+  alphas.forEach((a,i)=>{
+    contributions.push({a,T,contrib:a*T,col:colors[i]});
+    T*=(1-a);
+  });
+
+  // Final pixel color (mix of layer colors weighted by contribution)
+  const totalW=contributions.reduce((s,x)=>s+x.contrib,0);
+  const finalR=contributions.reduce((s,x,i)=>s+x.contrib*colors[i][0],0)/Math.max(totalW,0.01);
+  const finalG=contributions.reduce((s,x,i)=>s+x.contrib*colors[i][1],0)/Math.max(totalW,0.01);
+  const finalB=contributions.reduce((s,x,i)=>s+x.contrib*colors[i][2],0)/Math.max(totalW,0.01);
+
+  const spacing=W/5;
+
+  // Draw 4 layers
+  contributions.forEach((ct,i)=>{
+    const x=spacing*(i+0.5), cy2=100;
+    const [r,g,b]=ct.col;
+
+    roundRect(c,spacing*i+8,20,spacing-16,H-40,10,'rgba(255,255,255,0.02)',`rgba(${r},${g},${b},0.15)`);
+    drawBlob(c,x,cy2,48,26,0,r,g,b,ct.a*0.85);
+
+    // T bar
+    const barH2=Math.max(4,ct.T*100);
+    roundRect(c,x-20,190,40,barH2,4,`rgba(${r},${g},${b},0.2)`,`rgba(${r},${g},${b},0.4)`);
+
+    // Contribution bar
+    const cbarH=Math.max(4,ct.contrib*100);
+    roundRect(c,x+5,190,15,cbarH,3,`rgba(${r},${g},${b},0.6)`);
+
+    c.fillStyle=`rgba(${r},${g},${b},0.9)`;
+    c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+    c.fillText(colNames[i],x,H-24);
+    c.fillText(`T=${ct.T.toFixed(2)}`,x-10,183);
+    c.fillText(`α·T=${ct.contrib.toFixed(2)}`,x+12,183);
+    c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 7px IBM Plex Mono';
+    c.fillText('transmit  contrib',x,H-13);
+  });
+
+  // Final result
+  const fx=spacing*4.5, fy=100;
+  roundRect(c,spacing*4+8,20,spacing-16,H-40,10,'rgba(255,255,255,0.03)','rgba(255,255,255,0.15)');
+  c.beginPath(); c.arc(fx,fy,38,0,Math.PI*2);
+  c.fillStyle=`rgb(${Math.round(finalR)},${Math.round(finalG)},${Math.round(finalB)})`; c.fill();
+  c.strokeStyle='rgba(255,255,255,0.3)'; c.lineWidth=2; c.stroke();
+  c.fillStyle='rgba(255,255,255,0.7)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('FINAL PIXEL',fx,H-24);
+  c.fillStyle='rgba(255,255,255,0.35)'; c.font='600 8px IBM Plex Mono';
+  c.fillText(`rgb(${Math.round(finalR)},${Math.round(finalG)},${Math.round(finalB)})`,fx,H-12);
+}
+
+['a1','a2','a3','a4'].forEach((id,i)=>{
+  const el=$(id); if(!el)return;
+  el.addEventListener('input',()=>{
+    $('v'+id).textContent=(+el.value/100).toFixed(2);
+    drawComposite();
+  });
+});
+drawComposite();
+
+// ═══════════════════════════════════
+// LOSS DIAGRAM
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cLoss'); if(!c)return;
+  const W=920,H=220;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const pW=230, pH=160, y=30;
+
+  // Rendered
+  roundRect(c,15,y,pW,pH,10,'rgba(155,93,229,0.04)','rgba(155,93,229,0.2)');
+  c.fillStyle='rgba(155,93,229,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('RENDERED',15+pW/2,y+16);
+  // blobs
+  [
+    [80,90,35,15,.3,0,240,200,.65],
+    [155,110,18,32,-.2,155,93,229,.7],
+    [200,75,22,10,.5,255,140,66,.6],
+  ].forEach(([x,y2,rx,ry,r,rr,gg,bb,a])=>drawBlob(c,15+x,y+y2,rx,ry,r,rr,gg,bb,a));
+
+  // minus
+  c.fillStyle='rgba(255,255,255,0.5)'; c.font='800 28px Syne,sans-serif'; c.textAlign='center';
+  c.fillText('−',270,y+pH/2+8);
+
+  // Ground truth
+  roundRect(c,295,y,pW,pH,10,'rgba(0,240,200,0.04)','rgba(0,240,200,0.2)');
+  c.fillStyle='rgba(0,240,200,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('GROUND TRUTH',295+pW/2,y+16);
+  [
+    [80,90,38,16,.3,0,240,200,.75],
+    [155,110,20,34,-.2,155,93,229,.8],
+    [200,75,25,11,.5,255,140,66,.7],
+    [130,145,15,8,.1,87,204,153,.65],  // extra Gaussian — not yet learned
+  ].forEach(([x,y2,rx,ry,r,rr,gg,bb,a])=>drawBlob(c,295+x,y+y2,rx,ry,r,rr,gg,bb,a));
+
+  // equals
+  c.fillStyle='rgba(255,255,255,0.5)'; c.font='800 28px Syne'; c.textAlign='center';
+  c.fillText('=',545,y+pH/2+8);
+
+  // Error map
+  roundRect(c,565,y,pW,pH,10,'rgba(255,77,109,0.04)','rgba(255,77,109,0.2)');
+  c.fillStyle='rgba(255,77,109,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('ERROR MAP',565+pW/2,y+16);
+  // Error regions
+  const errorSpots=[
+    {x:80,y:90,r:20,bright:.2},
+    {x:155,y:110,r:12,bright:.15},
+    {x:200,y:75,r:14,bright:.18},
+    {x:130,y:145,r:25,bright:.8},  // big error — missing blob
+  ];
+  errorSpots.forEach(e=>{
+    const g=c.createRadialGradient(565+e.x,y+e.y,0,565+e.x,y+e.y,e.r);
+    g.addColorStop(0,`rgba(255,77,109,${e.bright})`);
+    g.addColorStop(1,'rgba(255,77,109,0)');
+    c.beginPath(); c.arc(565+e.x,y+e.y,e.r,0,Math.PI*2);
+    c.fillStyle=g; c.fill();
+  });
+
+  // Loss value
+  roundRect(c,815,y,90,pH,10,'rgba(87,204,153,0.04)','rgba(87,204,153,0.2)');
+  c.fillStyle='rgba(87,204,153,0.6)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('LOSS',860,y+16);
+  c.fillStyle='rgba(247,231,51,0.9)'; c.font='800 22px IBM Plex Mono';
+  c.fillText('0.042',860,y+70);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono';
+  c.fillText('L₁ + SSIM',860,y+90);
+  c.fillText('→ gradients',860,y+104);
+  c.fillText('   flow back',860,y+116);
+
+  // arrow
+  c.beginPath(); c.moveTo(800,y+pH/2); c.lineTo(812,y+pH/2);
+  c.moveTo(807,y+pH/2-5); c.lineTo(812,y+pH/2); c.lineTo(807,y+pH/2+5);
+  c.strokeStyle='rgba(255,255,255,0.3)'; c.lineWidth=1.5; c.stroke();
+
+  c.fillStyle='rgba(255,77,109,0.6)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('↑ big error here — missing Gaussian',565+130,y+pH+16);
+})();
+
+// ═══════════════════════════════════
+// GRADIENT FLOW
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cGrad'); if(!c)return;
+  const W=920,H=160;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  const params=[
+    {label:'position\n∂L/∂μ', col:'#00f0c8', x:80},
+    {label:'scale\n∂L/∂s',    col:'#9b5de5', x:210},
+    {label:'rotation\n∂L/∂r', col:'#f7e733', x:340},
+    {label:'opacity\n∂L/∂α',  col:'#ff4d6d', x:470},
+    {label:'SH color\n∂L/∂c', col:'#57cc99', x:620},
+  ];
+
+  // Loss box
+  roundRect(c,W-110,40,100,60,10,'rgba(247,231,51,0.1)','rgba(247,231,51,0.3)');
+  c.fillStyle='rgba(247,231,51,0.8)'; c.font='700 9px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('LOSS L',W-60,65); c.fillText('0.042',W-60,80);
+
+  params.forEach(p=>{
+    const [r,g,b]=[parseInt(p.col.slice(1,3),16),parseInt(p.col.slice(3,5),16),parseInt(p.col.slice(5,7),16)];
+    roundRect(c,p.x-45,80,90,50,8,`rgba(${r},${g},${b},0.1)`,`rgba(${r},${g},${b},0.35)`);
+    c.fillStyle=p.col; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+    p.label.split('\n').forEach((ln,li)=>c.fillText(ln,p.x,100+li*12));
+
+    // gradient arrow from loss
+    c.beginPath(); c.moveTo(W-115,70); c.lineTo(p.x+45,105);
+    c.strokeStyle=`rgba(${r},${g},${b},0.3)`; c.lineWidth=1.5; c.setLineDash([3,4]); c.stroke();
+    c.setLineDash([]);
+  });
+
+  c.fillStyle='rgba(255,255,255,0.25)'; c.font='600 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('← gradient signal flows back to every parameter of every Gaussian',20,H-5);
+})();
+
+// ═══════════════════════════════════
+// DENSIFICATION CHART
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cDensify'); if(!c)return;
+  const W=920,H=220;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  // Simulated count over iterations
+  const pts=[];
+  let count=200000;
+  const iters=30000;
+  for(let i=0;i<=100;i++){
+    const t=i/100;
+    const iter=t*iters;
+    // growth
+    if(iter<15000) count=200000+iter*200;
+    else count=3200000+Math.sin(iter/500)*50000;
+    // prune events every ~3000 steps
+    if(i>0&&Math.floor((i-1)/10)!==Math.floor(i/10)&&i%10===0&&i<80){
+      count*=0.75;
+    }
+    pts.push({x:50+t*(W-80),y:H-40-Math.min(count/3500000,1)*(H-70),count});
+  }
+
+  // Grid
+  [0.25,0.5,0.75,1.0].forEach(f=>{
+    const y=H-40-f*(H-70);
+    c.beginPath(); c.moveTo(50,y); c.lineTo(W-30,y);
+    c.strokeStyle='rgba(255,255,255,0.05)'; c.lineWidth=1; c.stroke();
+    c.fillStyle='rgba(255,255,255,0.25)'; c.font='600 8px IBM Plex Mono'; c.textAlign='right';
+    c.fillText(`${Math.round(f*3.5)}M`,46,y+4);
+  });
+
+  // Area fill
+  c.beginPath(); c.moveTo(pts[0].x,H-40);
+  pts.forEach(p=>c.lineTo(p.x,p.y));
+  c.lineTo(pts[pts.length-1].x,H-40); c.closePath();
+  const aGrad=c.createLinearGradient(0,30,0,H-40);
+  aGrad.addColorStop(0,'rgba(0,240,200,0.3)');
+  aGrad.addColorStop(1,'rgba(0,240,200,0.02)');
+  c.fillStyle=aGrad; c.fill();
+
+  // Line
+  c.beginPath(); c.moveTo(pts[0].x,pts[0].y);
+  pts.forEach(p=>c.lineTo(p.x,p.y));
+  c.strokeStyle='rgba(0,240,200,0.8)'; c.lineWidth=2; c.stroke();
+
+  // Prune annotations
+  [20,30,40,50,60,70].forEach((i)=>{
+    const p=pts[i];
+    if(!p)return;
+    c.beginPath(); c.moveTo(p.x,p.y-5); c.lineTo(p.x,H-40);
+    c.strokeStyle='rgba(255,77,109,0.3)'; c.lineWidth=1; c.setLineDash([2,4]); c.stroke();
+    c.setLineDash([]);
+    c.beginPath(); c.arc(p.x,p.y,4,0,Math.PI*2);
+    c.fillStyle='rgba(255,77,109,0.7)'; c.fill();
+  });
+  c.fillStyle='rgba(255,77,109,0.6)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('← prune events (opacity reset)',W/2,H-5);
+
+  // Axes
+  c.beginPath(); c.moveTo(50,20); c.lineTo(50,H-40); c.lineTo(W-30,H-40);
+  c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1.5; c.stroke();
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('Training iterations (0 → 30K)',W/2,H-2);
+  c.save(); c.translate(14,H/2); c.rotate(-Math.PI/2);
+  c.fillText('Gaussian count',0,0); c.restore();
+
+  // Phase labels
+  c.fillStyle='rgba(0,240,200,0.5)'; c.font='700 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('GROWTH PHASE',250,35);
+  c.fillText('CONVERGENCE PHASE',650,35);
+})();
+
+// ═══════════════════════════════════
+// FULL PIPELINE
+// ═══════════════════════════════════
+(function(){
+  const c=ctx('cFull'); if(!c)return;
+  const W=920,H=280;
+  c.fillStyle='#0e1220'; c.fillRect(0,0,W,H);
+
+  // Training loop (left 60%)
+  roundRect(c,10,10,535,H-20,14,'rgba(155,93,229,0.04)','rgba(155,93,229,0.2)');
+  c.fillStyle='rgba(155,93,229,0.5)'; c.font='700 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('TRAINING LOOP  (×30,000 iterations)',24,28);
+
+  const trainSteps=[
+    {x:40, label:'Photos\n+COLMAP', col:'#9b5de5', icon:'📷'},
+    {x:140,label:'Init\nGaussians', col:'#ff8c42', icon:'✦'},
+    {x:245,label:'Rasterize\n(render)',col:'#00f0c8',icon:'⬡'},
+    {x:355,label:'Loss\n(compare)', col:'#ff4d6d', icon:'⚡'},
+    {x:460,label:'Backprop\n+Update',  col:'#f7e733', icon:'∇'},
+  ];
+  trainSteps.forEach((s,i)=>{
+    const [r,g,b]=[parseInt(s.col.slice(1,3),16),parseInt(s.col.slice(3,5),16),parseInt(s.col.slice(5,7),16)];
+    roundRect(c,s.x,50,80,90,10,`rgba(${r},${g},${b},0.1)`,`rgba(${r},${g},${b},0.35)`);
+    c.fillStyle=s.col; c.font='18px sans-serif'; c.textAlign='center';
+    c.fillText(s.icon,s.x+40,85);
+    c.font='700 7.5px IBM Plex Mono';
+    s.label.split('\n').forEach((ln,li)=>c.fillText(ln,s.x+40,103+li*11));
+    if(i<trainSteps.length-1){
+      c.beginPath(); c.moveTo(s.x+83,95); c.lineTo(s.x+97,95);
+      c.moveTo(s.x+93,90); c.lineTo(s.x+97,95); c.lineTo(s.x+93,100);
+      c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1.5; c.stroke();
+    }
+  });
+
+  // densify + prune inside loop
+  roundRect(c,175,155,200,60,8,'rgba(87,204,153,0.07)','rgba(87,204,153,0.25)');
+  c.fillStyle='rgba(87,204,153,0.7)'; c.font='700 7.5px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('DENSIFY (every 100 steps)',275,172);
+  c.fillStyle='rgba(255,255,255,0.3)'; c.font='600 7px IBM Plex Mono';
+  c.fillText('Clone · Split · Prune',275,185); c.fillText('200K → 3M+ Gaussians',275,198);
+
+  // loop back arrow
+  c.beginPath();
+  c.moveTo(543,95); c.bezierCurveTo(575,95,575,200,300,220);
+  c.bezierCurveTo(100,225,40,180,40,143);
+  c.moveTo(40,148); c.lineTo(40,143); c.lineTo(45,148);
+  c.strokeStyle='rgba(155,93,229,0.3)'; c.lineWidth=1.5; c.setLineDash([4,6]); c.stroke();
+  c.setLineDash([]);
+
+  // Divider
+  c.beginPath(); c.moveTo(565,10); c.lineTo(565,H-10);
+  c.strokeStyle='rgba(255,255,255,0.1)'; c.lineWidth=1; c.setLineDash([4,6]); c.stroke();
+  c.setLineDash([]);
+
+  // Inference side (right 40%)
+  roundRect(c,575,10,335,H-20,14,'rgba(0,240,200,0.03)','rgba(0,240,200,0.15)');
+  c.fillStyle='rgba(0,240,200,0.5)'; c.font='700 8px IBM Plex Mono'; c.textAlign='left';
+  c.fillText('INFERENCE  (real-time)',590,28);
+
+  const infSteps=[
+    {x:595,label:'Trained\nGaussians',col:'#00f0c8',icon:'◉'},
+    {x:710,label:'Sort +\nSplat',    col:'#f7e733', icon:'⬦'},
+    {x:820,label:'Novel\nView!',     col:'#57cc99', icon:'✓'},
+  ];
+  infSteps.forEach((s,i)=>{
+    const [r,g,b]=[parseInt(s.col.slice(1,3),16),parseInt(s.col.slice(3,5),16),parseInt(s.col.slice(5,7),16)];
+    roundRect(c,s.x,50,90,90,10,`rgba(${r},${g},${b},0.1)`,`rgba(${r},${g},${b},0.35)`);
+    c.fillStyle=s.col; c.font='18px sans-serif'; c.textAlign='center';
+    c.fillText(s.icon,s.x+45,85);
+    c.font='700 7.5px IBM Plex Mono';
+    s.label.split('\n').forEach((ln,li)=>c.fillText(ln,s.x+45,103+li*11));
+    if(i<infSteps.length-1){
+      c.beginPath(); c.moveTo(s.x+93,95); c.lineTo(s.x+107,95);
+      c.moveTo(s.x+103,90); c.lineTo(s.x+107,95); c.lineTo(s.x+103,100);
+      c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1.5; c.stroke();
+    }
+  });
+
+  // Speed badge
+  roundRect(c,695,165,120,55,10,'rgba(87,204,153,0.1)','rgba(87,204,153,0.3)');
+  c.fillStyle='rgba(87,204,153,0.9)'; c.font='800 18px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('100+ FPS',755,195);
+  c.fillStyle='rgba(87,204,153,0.5)'; c.font='600 8px IBM Plex Mono';
+  c.fillText('no neural net at runtime',755,210);
+
+  // Column labels
+  c.fillStyle='rgba(155,93,229,0.4)'; c.font='600 8px IBM Plex Mono'; c.textAlign='center';
+  c.fillText('~30 min on modern GPU',300,H-12);
+  c.fillStyle='rgba(0,240,200,0.4)';
+  c.fillText('pure rasterization',755,H-12);
+})();
+</script>
+</body>
+</html>
