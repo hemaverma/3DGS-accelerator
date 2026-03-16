@@ -56,8 +56,12 @@ mod tests {
     /// - Waits for processing to complete
     /// - Verifies output files exist
     /// - Verifies job moved to processed folder
+    ///
+    /// Requires Docker with built app image. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_single_job_processing() {
         // Skip if Docker not available
         if check_docker_available().await.is_err() {
@@ -120,8 +124,12 @@ mod tests {
     }
 
     /// Test multiple jobs processed sequentially
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_multiple_jobs() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -170,8 +178,12 @@ mod tests {
     }
 
     /// Test error handling with corrupted video
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_error_handling() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -213,8 +225,12 @@ mod tests {
     }
 
     /// Test watch mode: Add job while container running
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_watch_mode_dynamic_upload() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -254,8 +270,12 @@ mod tests {
     }
 
     /// Test duplicate detection (same folder uploaded twice)
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_duplicate_detection() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -301,8 +321,12 @@ mod tests {
     }
 
     /// Test Azure Blob Storage mode with Azurite emulator
+    ///
+    /// Requires Docker with Azurite emulator. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_azure_blobstorage() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -352,8 +376,12 @@ mod tests {
     }
 
     /// Test disk space monitoring and behavior
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_disk_space_monitoring() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -383,8 +411,12 @@ mod tests {
     }
 
     /// Test retention policy (cleanup of old jobs)
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_retention_cleanup() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -428,8 +460,12 @@ mod tests {
     }
 
     /// Test health endpoint during processing
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_health_endpoint() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");
@@ -472,8 +508,12 @@ mod tests {
     }
 
     /// Test graceful shutdown with signal
+    ///
+    /// Requires Docker container infrastructure. Run with:
+    ///   cargo test --test e2e -- --ignored --nocapture
     #[tokio::test]
     #[serial]
+    #[ignore = "Requires Docker container infrastructure; run with --ignored"]
     async fn test_e2e_graceful_shutdown() {
         if check_docker_available().await.is_err() {
             eprintln!("⚠️  Skipping test: Docker not available");

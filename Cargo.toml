@@ -2,7 +2,7 @@
 name = "three-dgs-processor"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.83"
+rust-version = "1.93"
 
 [[bin]]
 name = "3dgs-processor"

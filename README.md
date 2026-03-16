@@ -392,6 +392,20 @@ BACKEND=mock cargo test
 
 </details>
 
+### Docker Container E2E Tests
+
+The `tests/e2e/` test suite requires the app running inside a Docker container with the built image (`3dgs-processor:test`). These tests are **skipped by default** during `cargo test` to avoid hangs when Docker or the container image is unavailable.
+
+```bash
+# Run only the container-based E2E tests (requires Docker + built image)
+cargo test --test e2e -- --ignored --nocapture
+
+# Run ALL tests including container E2E tests
+cargo test -- --include-ignored
+```
+
+> **Note**: These tests orchestrate Docker containers from the host — they do not need to run *inside* a container. They do require Docker to be installed, running, and the `3dgs-processor:test` image to be built (`docker build -t 3dgs-processor:test .`).
+
 ### Real Dataset Testing (Quality Validation)
 
 <details>
