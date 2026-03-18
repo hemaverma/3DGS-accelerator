@@ -46,7 +46,33 @@ while [[ $# -gt 0 ]]; do
         --no-load)   LOAD=false; shift ;;
         --cuda-arch) CUDA_ARCHITECTURES="$2"; shift 2 ;;
         --help|-h)
-            head -16 "$0" | tail -14
+            cat <<'EOF'
+3DGS Processor Docker build matrix
+
+Usage:
+  ./scripts/docker-build-matrix.sh                         # Build CPU + GPU (default)
+  ./scripts/docker-build-matrix.sh --cpu-only              # CPU image only
+  ./scripts/docker-build-matrix.sh --gpu-only              # GPU image only
+  ./scripts/docker-build-matrix.sh --gpu-only --cuda-arch "75"   # T4 only
+  REGISTRY=myacr.azurecr.io ./scripts/docker-build-matrix.sh --push
+
+Options:
+  --cpu-only            Build CPU-only image
+  --gpu-only            Build GPU-enabled image
+  --push                Push images to the configured registry (no local --load)
+  --no-load             Do not load images into the local Docker daemon
+  --cuda-arch <list>    Semicolon-separated SM codes (overrides CUDA_ARCHITECTURES)
+  -h, --help            Show this help message and exit
+
+Environment variables:
+  IMAGE_NAME            Base image name (default: 3dgs-processor)
+  IMAGE_TAG             Tag suffix (default: latest)
+  REGISTRY              Registry prefix, e.g. myacr.azurecr.io (default: none)
+  CUDA_ARCHITECTURES    Semicolon-separated SM codes (default: "75;80;86;89;90")
+  CUDA_VERSION          CUDA toolkit version (default: 12.6.3)
+  PYTORCH_CUDA_TAG      PyTorch wheel suffix (default: cu126)
+  COLMAP_VERSION        COLMAP git tag (default: 3.11.1)
+EOF
             exit 0
             ;;
         *)
