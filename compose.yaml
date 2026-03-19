@@ -25,7 +25,7 @@ services:
       OUTPUT_PATH: /data/output
       PROCESSED_PATH: /data/processed
       ERROR_PATH: /data/error
-      BACKEND: gaussian-splatting
+      BACKEND: mock
       TEMP_PATH: /tmp/3dgs-work
       LOG_LEVEL: debug
       HEALTH_CHECK_ENABLED: "true"

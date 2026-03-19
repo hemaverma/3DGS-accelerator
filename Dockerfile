@@ -1,9 +1,9 @@
 # Multi-stage Dockerfile for 3DGS Video Processor
 #
 # Two build targets:
-#   cpu  — Lightweight, multi-arch (amd64 + arm64). Uses apt COLMAP + CPU PyTorch, but
-#           still defaults to BACKEND=gsplat (GPU-only). On CPU-only hosts, override
-#           BACKEND (e.g., BACKEND=mock) at runtime.
+#   cpu  — Lightweight, multi-arch (amd64 + arm64). Uses apt COLMAP + CPU PyTorch.
+#           Recommended for CPU-only hosts with a CPU-capable BACKEND (e.g., BACKEND=mock).
+#           GPU-only backends like BACKEND=gsplat should be used with a GPU-capable target.
 #   gpu  — NVIDIA CUDA runtime, COLMAP from source with CUDA, CUDA PyTorch. amd64 only.
 #
 # Usage:
@@ -168,7 +168,7 @@ RUN apt-get update && \
         fuse3 \
         libfuse3-3 && \
     if [ "$ARCH" = "amd64" ]; then \
-        apt-get install -y --no-install-recommends blobfuse2 || true; \
+        apt-get install -y --no-install-recommends blobfuse2 || echo "WARNING: blobfuse2 installation failed; Azure Blob mounting via mount-azure.sh will not be available in this image."; \
     fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \

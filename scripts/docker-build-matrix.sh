@@ -37,16 +37,8 @@ BUILD_GPU=true
 PUSH=false
 LOAD=true   # --load by default for local use
 
-# ── Parse arguments ─────────────────────────────────────────────────────────
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --cpu-only)  BUILD_GPU=false; shift ;;
-        --gpu-only)  BUILD_CPU=false; shift ;;
-        --push)      PUSH=true; LOAD=false; shift ;;
-        --no-load)   LOAD=false; shift ;;
-        --cuda-arch) CUDA_ARCHITECTURES="$2"; shift 2 ;;
-        --help|-h)
-            cat <<'EOF'
+usage() {
+    cat <<'EOF'
 3DGS Processor Docker build matrix
 
 Usage:
@@ -73,6 +65,26 @@ Environment variables:
   PYTORCH_CUDA_TAG      PyTorch wheel suffix (default: cu126)
   COLMAP_VERSION        COLMAP git tag (default: 3.11.1)
 EOF
+}
+
+# ── Parse arguments ─────────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --cpu-only)  BUILD_GPU=false; shift ;;
+        --gpu-only)  BUILD_CPU=false; shift ;;
+        --push)      PUSH=true; LOAD=false; shift ;;
+        --no-load)   LOAD=false; shift ;;
+        --cuda-arch)
+            if [[ $# -lt 2 || "${2:-}" == -* ]]; then
+                echo "Error: --cuda-arch requires a value." >&2
+                usage
+                exit 1
+            fi
+            CUDA_ARCHITECTURES="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
             exit 0
             ;;
         *)
